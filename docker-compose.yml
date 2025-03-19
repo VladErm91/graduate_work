@@ -1,0 +1,8 @@
+include:
+  - './infra/movie.yml'
+  - './infra/ugc.yml'
+
+services:
+
+volumes:
+

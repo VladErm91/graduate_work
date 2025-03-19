@@ -1,0 +1,4 @@
+[flake8]
+max-line-length = 120
+ignore = R504, N803, E501
+exclude = .tox,.git,*/migrations/*,*/static/CACHE/*,docs,node_modules,venv,alembic
