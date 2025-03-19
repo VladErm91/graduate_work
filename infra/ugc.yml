@@ -1,14 +1,14 @@
 services:
 # ---- kafka web api ----
   flask-kafka-web:
-    image: rikhoff/auth_service:latest
+    image: rikhoff/ugc_service:latest
     # build:
       # context: ./flask_kafka_app
       # dockerfile: Dockerfile
     ports:
       - "8002:8002"
     env_file:
-      - .env
+      - .env.main
     restart: always
     depends_on:
         zookeeper:
@@ -91,7 +91,7 @@ services:
     container_name: clickhouse-node4
     hostname: clickhouse-node4
     volumes:
-      - ./clickhouse_data/data/node4:/etc/clickhouse-server
+      - ./clickhouse_data/node4:/etc/clickhouse-server
     depends_on:
       - zookeeper
 
@@ -101,22 +101,11 @@ services:
     # build: ./kafka_to_clickhouse_etl/
     restart: always
     env_file:
-      - .env
+      - .env.main
     depends_on:
       - kafka-0
       - flask-kafka-web
       - clickhouse-node1
 
-# ---- сервис nginx ----
-  nginx:
-    image: nginx:latest
-    restart: always
-    volumes:
-      - ./nginx/nginx.conf:/etc/nginx/nginx.conf:z
-      - ./nginx/configs:/etc/nginx/conf.d:z
-    depends_on:
-      - flask-kafka-web
-    ports:
-    - "80:80"
 volumes:
   kafka_0_data:

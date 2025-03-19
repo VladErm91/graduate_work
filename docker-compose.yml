@@ -1,8 +1,4 @@
 include:
-  - './infra/movie.yml'
+  - './infra/main.yml'
   - './infra/ugc.yml'
-
-services:
-
-volumes:
-
+  - './infra/nginx.yml'

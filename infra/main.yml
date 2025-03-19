@@ -4,7 +4,7 @@ services:
     image: postgres:16-alpine
     restart: always
     env_file:
-      - .env
+      - .env.main
     environment:
       - POSTGRES_DB=${DB_NAME:-movies_database}
       - POSTGRES_USER=${DB_USER:-app}
@@ -48,7 +48,7 @@ services:
     # ports:
     #   - "8080:8080"
     env_file:
-      - .env
+      - .env.main
     depends_on:
       db:
         condition: service_healthy
@@ -71,7 +71,7 @@ services:
     image: rikhoff/django_admin:latest   
     # build: ./django_admin/app
     env_file:
-      - .env
+      - .env.main
     expose:
       - "8081"
     # ports:
@@ -90,7 +90,7 @@ services:
     #build: ./movies_api/app
     command: uvicorn --app-dir ./src main:app --host 0.0.0.0 --port 8000
     env_file:
-      - .env
+      - .env.main
     expose:
       - "8000"
     # ports:
@@ -142,64 +142,8 @@ services:
   #     redis:
   #       condition: service_healthy
 
-# ---- сервис file_api ----
-  file_api:
-    container_name: file_api
-    image: rikhoff/file_api:latest
-    restart: always
-    #build: ./movies_app/file_api
-    command: uvicorn --app-dir ./file_api main:app --host 0.0.0.0 --port 8001
-    env_file:
-      - .env
-    volumes:
-      - .:/file_api
-    # ports:
-    #   - "8001:8001"
-    expose:
-      - "8001"
-    depends_on:
-        db:
-          condition: service_healthy
-        minio:
-          condition: service_started
-
-  minio:
-    image: minio/minio
-    ports:
-      - "9000:9000"
-      - "9001:9001"
-    env_file:
-      - .env
-    environment:
-      - MINIO_ROOT_USER=${MINIO_ROOT_USER:-practicum}
-      - MINIO_ROOT_PASSWORD=${MINIO_ROOT_PASSWORD:-StrongPass}
-    volumes:
-      - minio_storage:/data
-    command: server --console-address ":9001" /data
-    depends_on:
-        db:
-          condition: service_healthy
-        django_admin:
-          condition: service_started
-
-# ---- сервис nginx ----
-  nginx:
-    image: nginx:latest
-    volumes:
-      - ./nginx/nginx.conf:/etc/nginx/nginx.conf:z
-      - ./nginx/configs:/etc/nginx/conf.d:z
-      - static:/data/static/:z
-    depends_on:
-      - django_admin
-      - auth
-      - app
-      - file_api
-    ports:
-    - "80:80"
-
 
 volumes:
   postgres_data:
   elasticsearch_data:
-  minio_storage:
   static:
