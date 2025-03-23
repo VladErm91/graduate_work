@@ -5,7 +5,7 @@
 #         --noinput \
 
 python -m pip install --upgrade pip 
-pip install -r auth/requirements.txt
-pip install -r django/app/requirements.txt
-pip install -r fastapi-solution/app/requirements.txt
-pip install -r fastapi-solution/file_api/requirements.txt
+pip install -r app/requirements.txt
+#  pip install -r django/app/requirements.txt
+#  pip install -r fastapi-solution/app/requirements.txt
+#  pip install -r fastapi-solution/file_api/requirements.txt

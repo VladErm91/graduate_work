@@ -1,11 +1,13 @@
 import logging
 from contextlib import asynccontextmanager
 
-from api.v1 import recommend
+from api.v1 import auth, history_auth, role, users
 from core.config import settings
+from core.request_limit import request_limiter
+from core.tracer import configure_tracer
 from db.db import create_database
 from db.redis import close_redis, init_redis
-from fastapi import FastAPI, Request, status
+from fastapi import FastAPI, HTTPException, Request, status
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import ORJSONResponse
 from fastapi_pagination import add_pagination
@@ -38,8 +40,8 @@ async def lifespan(app: FastAPI):
 
 app = FastAPI(
     title=settings.project_name,
-    docs_url="/api/recommend/openapi",
-    openapi_url="/api/recommend/openapi.json",
+    docs_url="/api/auth/openapi",
+    openapi_url="/api/auth/openapi.json",
     default_response_class=ORJSONResponse,
     lifespan=lifespan,
 )
@@ -60,6 +62,18 @@ app.add_middleware(
 
 
 @app.middleware("http")
+async def requests_limit_checker(request: Request, call_next):
+    try:
+        await request_limiter(request)
+    except HTTPException:
+        return ORJSONResponse(
+            content={"message": "Слишком много запросов от данного пользователя"}
+        )
+    response = await call_next(request)
+    return response
+
+
+@app.middleware("http")
 async def before_request(request: Request, call_next):
 
     response = await call_next(request)
@@ -71,9 +85,21 @@ async def before_request(request: Request, call_next):
         )
     return response
 
-app.add_middleware(SessionMiddleware, secret_key=settings.secret_key)
-app.include_router(recomendations.router, prefix="/api/recommend/v1/", tags=[""])
 
+if settings.enable_tracing:
+    configure_tracer()
+    # FastAPIInstrumentor.instrument_app(app)
+
+
+app.add_middleware(SessionMiddleware, secret_key=settings.secret_key)
+app.include_router(auth.router, prefix="/api/auth/v1/login", tags=["auth"])
+app.include_router(users.router, prefix="/api/auth/v1/users", tags=["users"])
+app.include_router(role.router, prefix="/api/auth/v1/roles", tags=["roles"])
+app.include_router(
+    history_auth.router,
+    prefix="/api/auth/v1/history_auth",
+    tags=["history_auth"],
+)
 
 
 # Эндпойнт для проверки состояния приложения
