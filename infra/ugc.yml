@@ -1,111 +1,20 @@
 services:
-# ---- kafka web api ----
-  flask-kafka-web:
+  # ---- api для mongo пользвательских закладок, лайков/дизлайков, рецензий  ----
+  ugc_service:
+    # build: ./mongo_app/app
     image: rikhoff/ugc_service:latest
-    # build:
-      # context: ./flask_kafka_app
-      # dockerfile: Dockerfile
-    ports:
-      - "8002:8002"
-    env_file:
-      - .env.main
-    restart: always
-    depends_on:
-        zookeeper:
-          condition: service_started
-        kafka-0:
-          condition: service_healthy
-
-# ---- сервис zookeeper ----
-  zookeeper:
-    image: zookeeper:3.8
-    restart: on-failure
     expose:
-      - "2181"
-    environment:
-      ZOOKEEPER_CLIENT_PORT: 2181
-      ZOOKEEPER_TICK_TIME: 2000
+      - "8766"
+    ports:  
+      - "8766:8766"        
 
-# ---- сервис kafka ----
-  kafka-0:
-    image: bitnami/kafka:3.4
+  mongodb:
+    image: mongo
     ports:
-      - "9094:9094"
-    environment:
-      - KAFKA_ENABLE_KRAFT=yes
-      - KAFKA_CFG_PROCESS_ROLES=broker,controller
-      - KAFKA_CFG_CONTROLLER_LISTENER_NAMES=CONTROLLER
-      - ALLOW_PLAINTEXT_LISTENER=yes
-      - KAFKA_CFG_NODE_ID=0
-      - KAFKA_CFG_CONTROLLER_QUORUM_VOTERS=0@kafka-0:9093
-      - KAFKA_KRAFT_CLUSTER_ID=abcdefghijklmnopqrstuv
-      - KAFKA_CFG_LISTENERS=PLAINTEXT://:9092,CONTROLLER://:9093,EXTERNAL://:9094
-      - KAFKA_CFG_ADVERTISED_LISTENERS=PLAINTEXT://kafka-0:9092,EXTERNAL://127.0.0.1:9094
-      - KAFKA_CFG_LISTENER_SECURITY_PROTOCOL_MAP=CONTROLLER:PLAINTEXT,EXTERNAL:PLAINTEXT,PLAINTEXT:PLAINTEXT
-    healthcheck:
-      test: "exit 0"
+      - 27017:27017
     volumes:
-      - kafka_0_data:/bitnami/kafka
-
-  ui:
-    image: provectuslabs/kafka-ui:latest
-    ports:
-      - "8080:8080"
-    environment:
-      - KAFKA_CLUSTERS_0_BOOTSTRAP_SERVERS=kafka-0:9092
-      - KAFKA_CLUSTERS_0_NAME=kraft 
-
-# ---- сервис clickhouse ----
-  clickhouse-node1:
-    image: clickhouse/clickhouse-server:23
-    container_name: clickhouse-node1
-    hostname: clickhouse-node1
-    volumes:
-      - ./clickhouse_data/node1:/etc/clickhouse-server
-    depends_on:
-      - zookeeper
-    ports:
-      - "8123:8123"
-      - "9000:9000"
-
-  clickhouse-node2:
-    image: clickhouse/clickhouse-server:23
-    container_name: clickhouse-node2
-    hostname: clickhouse-node2
-    volumes:
-      - ./clickhouse_data/node2:/etc/clickhouse-server
-    depends_on:
-      - zookeeper
-
-  clickhouse-node3:
-    image: clickhouse/clickhouse-server:23
-    container_name: clickhouse-node3
-    hostname: clickhouse-node3
-    volumes:
-      - ./clickhouse_data/node3:/etc/clickhouse-server
-    depends_on:
-      - zookeeper
-
-  clickhouse-node4:
-    image: clickhouse/clickhouse-server:23
-    container_name: clickhouse-node4
-    hostname: clickhouse-node4
-    volumes:
-      - ./clickhouse_data/node4:/etc/clickhouse-server
-    depends_on:
-      - zookeeper
-
-# ---- сервис etl kafka to clickhouse ----
-  etl_service:
-    image: rikhoff/kafka_etl:latest
-    # build: ./kafka_to_clickhouse_etl/
-    restart: always
-    env_file:
-      - .env.main
-    depends_on:
-      - kafka-0
-      - flask-kafka-web
-      - clickhouse-node1
+      - mongodb_data:/data/db
+    restart: unless-stopped
 
 volumes:
-  kafka_0_data:
+  mongodb_data:

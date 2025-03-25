@@ -19,11 +19,6 @@ logging.basicConfig(level=logging.INFO)
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
-    # Инициализация базы данных
-    logging.info("Initializing the database...")
-    await create_database()
-    print("Database created successfully.")
-
     # Инициализация Redis
     logging.info("Initializing Redis...")
     await init_redis()
@@ -43,20 +38,6 @@ app = FastAPI(
     default_response_class=ORJSONResponse,
     lifespan=lifespan,
 )
-add_pagination(app)
-
-
-# Define CORS settings
-origins = ["*"]  # Allow requests from any origin
-
-# Add CORS middleware
-app.add_middleware(
-    CORSMiddleware,
-    allow_origins=origins,
-    allow_credentials=True,
-    allow_methods=["GET", "POST", "PUT", "DELETE", "OPTIONS"],
-    allow_headers=["*"],
-)
 
 
 @app.middleware("http")
@@ -72,8 +53,8 @@ async def before_request(request: Request, call_next):
     return response
 
 app.add_middleware(SessionMiddleware, secret_key=settings.secret_key)
-app.include_router(recomendations.router, prefix="/api/recommend/v1/", tags=[""])
-
+app.include_router(recommend.router, prefix="/api/recommend/v1/", tags=["recommend"])
+app.include_router(recommend.router, prefix="/api/genres/v1/", tags=["genres"])
 
 
 # Эндпойнт для проверки состояния приложения
