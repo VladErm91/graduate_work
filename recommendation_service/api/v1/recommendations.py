@@ -1,12 +1,19 @@
 from fastapi import APIRouter, Depends
 from sqlalchemy.ext.asyncio import AsyncSession
-from core.database import get_db
-from services.hybrid_recommender import HybridRecommender
+from repositories.user_repository import UserRepository
+from repositories.algorithms import AlgorithmA, AlgorithmB
+from db.database import get_db
 
 router = APIRouter()
-recommender = HybridRecommender()
 
 
-@router.get("/recommendations/{user_id}")
+@router.get("/{user_id}")
 async def get_recommendations(user_id: str, db: AsyncSession = Depends(get_db)):
-    return await recommender.get_hybrid_recommendations(user_id, db)
+    algorithm = await UserRepository.get_user_algorithm(user_id, db)
+
+    if algorithm == "A":
+        recommendations = await AlgorithmA.get_recommendations(user_id, db)
+    else:
+        recommendations = await AlgorithmB.get_recommendations(user_id, db)
+
+    return {"algorithm": algorithm, "recommendations": recommendations}

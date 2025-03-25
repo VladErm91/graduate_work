@@ -1,3 +1,5 @@
+# recommendation_service/generate_test_data.py
+
 import psycopg2
 import random
 import uuid

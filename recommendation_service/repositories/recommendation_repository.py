@@ -1,30 +1,29 @@
-from sqlalchemy.ext.asyncio import AsyncSession
-from sqlalchemy.future import select
-from models.watch_history import WatchHistory
-from models.movie import Movie
+from db.redis import redis_client
+from db.database import get_db
+from repositories.algorithms import AlgorithmA, AlgorithmB
 
 
 class RecommendationRepository:
     @staticmethod
-    async def get_watched_movies(user_id: str, db: AsyncSession):
-        query = select(WatchHistory.movie_id).where(WatchHistory.user_id == user_id)
-        result = await db.execute(query)
-        return result.scalars().all()
+    async def get_recommendations(user_id: str, db):
+        cache_key = f"user_recommendations:{user_id}"
+        cached_recommendations = await redis_client.get(cache_key)
 
-    @staticmethod
-    async def get_popular_movies(db: AsyncSession):
-        query = select(Movie).limit(5)
-        result = await db.execute(query)
-        return result.scalars().all()
+        if cached_recommendations:
+            return cached_recommendations.decode("utf-8").split(",")
 
-    @staticmethod
-    async def get_similar_movies(watched_movies, db: AsyncSession):
-        query = select(Movie).where(Movie.id.notin_(watched_movies)).limit(5)
-        result = await db.execute(query)
-        return result.scalars().all()
+        algorithm = await db.execute(
+            "SELECT algorithm FROM user_algorithms WHERE user_id = :user_id",
+            {"user_id": user_id},
+        )
+        algorithm = algorithm.scalar()
 
-    @staticmethod
-    async def get_movies_from_users(user_ids, db: AsyncSession):
-        query = select(Movie).join(WatchHistory).where(WatchHistory.user_id.in_(user_ids)).limit(5)
-        result = await db.execute(query)
-        return result.scalars().all()
+        if algorithm == "A":
+            recommendations = await AlgorithmA.get_recommendations(user_id, db)
+        else:
+            recommendations = await AlgorithmB.get_recommendations(user_id, db)
+
+        await redis_client.set(
+            cache_key, ",".join(recommendations), ex=3600
+        )  # Кешируем на 1 час
+        return recommendations

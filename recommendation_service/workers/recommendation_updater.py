@@ -1,23 +1,18 @@
 import asyncio
-from aiokafka import AIOKafkaConsumer
-from core.database import get_db
-from services.hybrid_recommender import HybridRecommender
+from db.database import get_db
+from repositories.analytics_repository import AnalyticsRepository
 
 
-async def consume():
-    consumer = AIOKafkaConsumer(
-        "recommendations", bootstrap_servers="kafka:9092", group_id="recommender"
-    )
-    await consumer.start()
-    try:
-        async for msg in consumer:
-            user_id = msg.value.decode("utf-8")
-            async with get_db() as db:
-                recommender = HybridRecommender()
-                await recommender.get_hybrid_recommendations(user_id, db)
-    finally:
-        await consumer.stop()
+async def update_algorithm_weights():
+    async with get_db() as db:
+        await AnalyticsRepository.update_algorithm_weights(db)
+
+
+async def main():
+    while True:
+        await update_algorithm_weights()
+        await asyncio.sleep(3600)  # Обновлять каждую 1 час
 
 
 if __name__ == "__main__":
-    asyncio.run(consume())
+    asyncio.run(main())
