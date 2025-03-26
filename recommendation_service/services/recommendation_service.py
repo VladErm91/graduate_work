@@ -1,3 +1,5 @@
+# recommendation_service/services/recommendation_service.py
+
 import pickle
 import numpy as np
 from sqlalchemy.ext.asyncio import AsyncSession

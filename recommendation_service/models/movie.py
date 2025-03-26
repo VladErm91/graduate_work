@@ -1,4 +1,6 @@
-from sqlalchemy import Column, String, Integer, Float
+# recommendation_service/models/movie.py
+
+from sqlalchemy import Column, String, Float
 from core.database import Base
 
 

@@ -1,3 +1,5 @@
+# recommendation_service/services/user_action_service.py
+
 from core.kafka import producer
 import json
 

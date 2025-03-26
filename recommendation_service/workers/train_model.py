@@ -1,4 +1,5 @@
 # recommendation_service/workers/train_model.py
+
 import pandas as pd
 from clickhouse_driver import Client
 from services.model_storage import save_model_to_minio

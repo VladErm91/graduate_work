@@ -1,3 +1,5 @@
+# recommendation_service/workers/popular_movies_updater.py
+
 import asyncio
 from db.redis import redis_client
 from db.database import get_db

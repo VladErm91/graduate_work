@@ -1,3 +1,5 @@
+# recommendation_service/services/model_storage.py
+
 import pickle
 from core.minio_client import minio_client, MINIO_BUCKET
 from io import BytesIO

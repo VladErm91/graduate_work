@@ -3,11 +3,15 @@ uvicorn
 asyncpg
 psycopg2
 sqlalchemy
-aioredis
+redis
 pydantic
+pydantic-settings
 alembic
 clickhouse-driver
 minio
 kafka-python
 redis
 python-dotenv
+autoflake>=2.0.0
+black>=23.0.0
+isort>=5.12.0

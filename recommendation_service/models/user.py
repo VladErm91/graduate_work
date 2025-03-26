@@ -1,3 +1,5 @@
+# recommendation_service/models/user.py
+
 from sqlalchemy import Column, String, Integer
 from core.database import Base
 

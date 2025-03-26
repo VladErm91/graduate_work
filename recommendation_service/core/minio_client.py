@@ -1,3 +1,5 @@
+# recommendation_service/core/minio_client.py
+
 from minio import Minio
 import os
 

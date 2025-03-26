@@ -82,3 +82,12 @@ schemas/ — Pydantic-схемы
 core/ — настройки, конфиги
 
 main.py — точка входа
+
+```bash
+cd recommendation_service/
+docker-compose down -v
+docker-compose up --build -d
+docker-compose exec fastapi alembic revision --autogenerate -m "Initial migration"
+docker-compose exec fastapi alembic upgrade head
+docker-compose exec fastapi python scripts/generate_test_data.py
+```

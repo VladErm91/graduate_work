@@ -1,3 +1,5 @@
+# recommendation_service/workers/recommendation_updater.py
+
 import asyncio
 from db.database import get_db
 from repositories.analytics_repository import AnalyticsRepository

@@ -1,3 +1,5 @@
+# recommendation_service/docker-compose.yml
+
 services:
   postgres:
     image: postgres:15
@@ -72,6 +74,7 @@ services:
       - redis
       - kafka
     environment:
+      PYTHONPATH: /app
       DATABASE_URL: postgresql+asyncpg://admin:password@postgres:5432/recommendations
       MINIO_ENDPOINT: http://minio:9000
       MINIO_ROOT_USER: admin
@@ -79,7 +82,7 @@ services:
     ports:
       - "8000:8000"
     command: >
-      sh -c "alembic upgrade head && uvicorn main:app --host 0.0.0.0 --port 8000 --reload"
+      sh -c "uvicorn main:app --host 0.0.0.0 --port 8000 --reload"
 
   recommendation_worker:
     build: .

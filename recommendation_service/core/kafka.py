@@ -1,3 +1,5 @@
+# recommendation_service/core/kafka.py
+
 from confluent_kafka import Producer, Consumer
 from core.config import settings
 

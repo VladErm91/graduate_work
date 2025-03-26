@@ -1,3 +1,5 @@
+# recommendation_service/repositories/analytics_repository.py
+
 from sqlalchemy.ext.asyncio import AsyncSession
 
 

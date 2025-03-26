@@ -1,6 +1,9 @@
+# recommendation_service/api/v1/metrics.py
+"""Модуль отслеживания метрик"""
+
 from fastapi import APIRouter, Depends
 from sqlalchemy.ext.asyncio import AsyncSession
-from db.database import get_db
+from core.database import get_db
 from repositories.analytics_repository import AnalyticsRepository
 
 router = APIRouter()

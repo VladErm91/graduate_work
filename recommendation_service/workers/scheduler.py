@@ -1,3 +1,5 @@
+# recommendation_service/workers/scheduler.py
+
 import time
 from workers.train_model import train_model
 

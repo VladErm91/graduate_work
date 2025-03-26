@@ -1,21 +1,20 @@
+# recommendation_service/scripts/train_recommendation_model.py
+
 import pandas as pd
 import numpy as np
 from sklearn.metrics.pairwise import cosine_similarity
 import pickle
 from sqlalchemy.ext.asyncio import AsyncSession
 from core.database import AsyncSessionLocal
+from sqlalchemy import select
 from models.watch_history import WatchHistory
 from models.movie import Movie
 
 
 async def load_data():
     async with AsyncSessionLocal() as db:
-        query = """
-        SELECT user_id, movie_id FROM watch_history
-        """
-        result = await db.execute(query)
-        data = result.fetchall()
-
+        result = await db.execute(select(WatchHistory.user_id, WatchHistory.movie_id))
+        data = result.fetchall()  # Возможно заменить на scalars().all() при большом объеме данных
         return pd.DataFrame(data, columns=["user_id", "movie_id"])
 
 
