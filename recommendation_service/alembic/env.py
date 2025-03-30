@@ -13,7 +13,6 @@ from core.database import Base
 from models.user import User  # Импорт модели User
 from models.movie import Movie  # Импорт модели Movie
 from models.watch_history import WatchHistory  # Импорт модели WatchHistory
-from models.user_preferences import UserPreferences  # Импорт модели UserPreferences
 from core.config import settings
 
 

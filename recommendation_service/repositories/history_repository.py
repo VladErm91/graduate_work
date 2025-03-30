@@ -1,18 +1,19 @@
-# recommendation_service/repositories/history_repository.py
-from core.redis import get_redis  # Используем get_redis вместо redis_client
+from sqlalchemy.ext.asyncio import AsyncSession
+from models.watch_history import WatchHistory
+import uuid
+from datetime import datetime, timezone, timedelta
 
 
 class HistoryRepository:
     @staticmethod
-    async def save_user_history(user_id: str, movie_id: str):
-        redis = await get_redis()
-        cache_key = f"user_history:{user_id}"
-        await redis.lpush(cache_key, movie_id)
-        await redis.ltrim(cache_key, 0, 9)  # Храним только 10 записей
-        await redis.expire(cache_key, 86400)  # Кешируем на 24 часа
-
-    @staticmethod
-    async def get_user_history(user_id: str):
-        redis = await get_redis()
-        cache_key = f"user_history:{user_id}"
-        return await redis.lrange(cache_key, 0, -1)
+    async def save_user_history(user_id: str, movie_id: str, db: AsyncSession):
+        history = WatchHistory(
+            id=str(uuid.uuid4()),
+            user_id=user_id,
+            movie_id=movie_id,
+            watched_at=datetime.now(timezone.utc),
+            watch_time=timedelta(minutes=10),
+            completed=False,
+        )
+        db.add(history)
+        await db.commit()

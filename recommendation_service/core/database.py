@@ -1,18 +1,17 @@
-# recommendation_service/core/database.py
-
-from sqlalchemy.ext.asyncio import AsyncSession, create_async_engine
+from sqlalchemy.ext.asyncio import AsyncEngine, create_async_engine, AsyncSession
 from sqlalchemy.orm import sessionmaker
-from sqlalchemy.ext.declarative import declarative_base
 from core.config import settings
+from sqlalchemy.ext.declarative import declarative_base
 
 DATABASE_URL = (
     f"postgresql+asyncpg://{settings.POSTGRES_USER}:{settings.POSTGRES_PASSWORD}@"
     f"{settings.POSTGRES_HOST}:{settings.POSTGRES_PORT}/{settings.POSTGRES_DB}"
 )
 
-engine = create_async_engine(DATABASE_URL, echo=True)
-SessionLocal = sessionmaker(bind=engine, class_=AsyncSession, expire_on_commit=False)
 Base = declarative_base()
+
+engine: AsyncEngine = create_async_engine(DATABASE_URL, echo=True)
+SessionLocal = sessionmaker(engine, class_=AsyncSession, expire_on_commit=False)
 
 
 async def get_db():
@@ -21,5 +20,4 @@ async def get_db():
 
 
 async def init_db():
-    async with engine.begin() as conn:
-        await conn.run_sync(Base.metadata.create_all)
+    pass

@@ -1,20 +1,18 @@
-# recommendation_service/repositories/user_repository.py
-
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import select
+from models.user import User
+import random
 
 
 class UserRepository:
     @staticmethod
     async def get_user_algorithm(user_id: str, db: AsyncSession) -> str:
-        from models.user_preferences import UserPreferences
-        stmt = select(UserPreferences.algorithm).where(UserPreferences.user_id == user_id)
+        stmt = select(User).where(User.user_id == user_id)
         result = await db.execute(stmt)
-        algorithm = result.scalar()
-        if algorithm is None:
-            # Создаём запись с дефолтным алгоритмом
-            pref = UserPreferences(user_id=user_id, algorithm="A")
-            db.add(pref)
+        user = result.scalar_one_or_none()
+        if user is None:
+            user = User(user_id=user_id, username=f"user_{user_id[:8]}", age=25)
+            db.add(user)
             await db.commit()
-            return "A"
-        return algorithm
+            return "A" if random.choice([True, False]) else "B"
+        return "A" if user.age < 30 else "B"
