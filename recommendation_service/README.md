@@ -90,4 +90,6 @@ docker-compose up --build -d
 docker-compose exec fastapi alembic revision --autogenerate -m "Initial migration"
 docker-compose exec fastapi alembic upgrade head
 docker-compose exec fastapi python scripts/generate_test_data.py
+docker-compose exec fastapi python -c "from tasks import train_model; import asyncio; asyncio.run(train_model())"
+
 ```

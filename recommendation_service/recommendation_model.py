@@ -127,7 +127,7 @@ class RecommendationModel:
 
     async def get_recommendations(
         self, user_id: str, db: AsyncSession, n: int = 3
-    ) -> list[str]:
+    ) -> dict:
         # Если модель не обучена, возвращаем популярные фильмы
         if self.user_item_matrix is None or not self.user_ids:
             stmt = (
@@ -137,10 +137,9 @@ class RecommendationModel:
                 .limit(n)
             )
             popular = (await db.execute(stmt)).scalars().all()
-            logger.info(
-                f"Returning popular movies for user {user_id} (no model or data)"
-            )
-            return list(popular) if popular else ["movie1", "movie2", "movie3"]
+            recommendations = list(popular) if popular else ["movie1", "movie2", "movie3"]
+            logger.info(f"Returning popular movies for user {user_id} (no model or data): {recommendations}")
+            return {"source": "popular", "recommendations": recommendations}
 
         # Получаем строку взаимодействий пользователя
         user_row = await self.get_user_row(user_id, db)
@@ -154,8 +153,9 @@ class RecommendationModel:
                 .limit(n)
             )
             popular = (await db.execute(stmt)).scalars().all()
-            logger.info(f"Returning popular movies for new user {user_id}")
-            return list(popular) if popular else ["movie1", "movie2", "movie3"]
+            recommendations = list(popular) if popular else ["movie1", "movie2", "movie3"]
+            logger.info(f"Returning popular movies for new user {user_id}: {recommendations}")
+            return {"source": "popular", "recommendations": recommendations}
 
         user_idx = self.user_to_idx[user_id]
         stmt = select(WatchHistory.movie_id).where(WatchHistory.user_id == user_id)
@@ -170,8 +170,9 @@ class RecommendationModel:
             for idx in recommended_ids
             if idx in self.idx_to_movie and self.idx_to_movie[idx] not in watched
         ][:n]
-        logger.info(f"Generated recommendations for user {user_id}: {recommendations}")
-        return recommendations if recommendations else ["movie1", "movie2", "movie3"]
+        recommendations = recommendations if recommendations else ["movie1", "movie2", "movie3"]
+        logger.info(f"Generated recommendations for user {user_id} using ALS model: {recommendations}")
+        return {"source": "als", "recommendations": recommendations}
 
 
 recommendation_model = RecommendationModel()
