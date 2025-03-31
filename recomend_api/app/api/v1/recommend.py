@@ -107,37 +107,37 @@ async def get_base_recommendations_for_user(
         return {"movies": all_movies}
 
 
-@router.post(
-    "/analyze_user",
-    summary="Send user data for ML analysis and get result",
-    description="Fetches user interactions (likes, reviews, bookmarks, views, genres) from multiple MongoDB collections and sends them to the ML service for analysis. The result is fetched from Redis.",
-)
-async def get_ml_recommendations_for_user(
-    user: Dict[str, Any] = Depends(security_jwt),  # Данные пользователя из JWT
-    redis: Redis = Depends(get_redis),
-):
-    """
-    Загружает данные пользователя из MongoDB (несколько коллекций), отправляет в ML-сервис и получает результат из Redis.
-    """
-    user_id = str(user["id"])
+# @router.post(
+#     "/analyze_user",
+#     summary="Send user data for ML analysis and get result",
+#     description="Fetches user interactions (likes, reviews, bookmarks, views, genres) from multiple MongoDB collections and sends them to the ML service for analysis. The result is fetched from Redis.",
+# )
+# async def get_ml_recommendations_for_user(
+#     user: Dict[str, Any] = Depends(security_jwt),  # Данные пользователя из JWT
+#     redis: Redis = Depends(get_redis),
+# ):
+#     """
+#     Загружает данные пользователя из MongoDB (несколько коллекций), отправляет в ML-сервис и получает результат из Redis.
+#     """
+#     user_id = str(user["id"])
 
-    # Загружаем данные пользователя из MongoDB
-    user_data = await get_user_data(db, user_id)
+#     # Загружаем данные пользователя из MongoDB
+#     user_data = await get_user_data(db, user_id)
 
-    # Преобразуем Pydantic-модель в словарь
-    user_data_dict = user_data.model_dump()
-    user_data_dict["user_id"] = user_id
+#     # Преобразуем Pydantic-модель в словарь
+#     user_data_dict = user_data.model_dump()
+#     user_data_dict["user_id"] = user_id
 
-    # Отправка данных в ML-сервис
-    async with httpx.AsyncClient() as client:
-        response = await client.post(settings.ML_SERVICE, json=user_data_dict)
+#     # Отправка данных в ML-сервис
+#     async with httpx.AsyncClient() as client:
+#         response = await client.post(settings.ML_SERVICE, json=user_data_dict)
 
-    if response.status_code != 200:
-        raise HTTPException(
-            status_code=response.status_code, detail="Error sending data to ML service"
-        )
+#     if response.status_code != 200:
+#         raise HTTPException(
+#             status_code=response.status_code, detail="Error sending data to ML service"
+#         )
 
-    # Проверяем, есть ли готовый анализ в Redis
-    recommends = await redis.get(f"user_analysis:{user_id}")
+#     # Проверяем, есть ли готовый анализ в Redis
+#     recommends = await redis.get(f"user_analysis:{user_id}")
 
-    return json.loads(recommends)
+#     return json.loads(recommends)
