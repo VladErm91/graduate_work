@@ -15,7 +15,8 @@ router = APIRouter()
 
 @router.post("/", response_model=Movie)
 async def create_movie(
-    movie: MovieCreate, user: Annotated[dict, Depends(security_jwt)]
+    user: Annotated[dict, Depends(security_jwt)], 
+    movie: MovieCreate
 ):
     """
     Create a new movie.
@@ -48,8 +49,8 @@ async def get_movies():
 
 @router.post("/movie_timestamp/", response_model=WatchedMovie)
 async def create_movie_timestamp(
-    movie_timestamp: WatchedMovieCreate,
     user: Annotated[dict, Depends(security_jwt)],
+    movie_timestamp: WatchedMovieCreate,
 ):
     """
     Create a mark for watched movie.
@@ -86,6 +87,6 @@ async def get_watched_movies(
         A list of WatchedMovies objects from the database that match the given user_id.
     """
     watchedMovies = convert_objectid(
-        await db.watched_movies.find({"user_id": user_id}).to_list(1000)
+        await db.watched_movies.find({"user_id": user_id}).to_list(100)
     )
     return watchedMovies

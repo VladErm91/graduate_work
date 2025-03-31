@@ -36,10 +36,13 @@ class Movie(BaseModel):
         json_encoders = {ObjectId: str}
 
 
-class MovieTimestamp(BaseModel):
+class WatchedMovie(BaseModel):
     id: Optional[PyObjectId] = Field(alias="_id")
     user_id: PyObjectId
     movie_id: PyObjectId
+    watched_at: datetime
+    complete: bool
+
 
     class Config:
         from_attributes = True

@@ -56,7 +56,7 @@ class WatchedMovieBase(BaseModel):
     complete:bool
 
 
-class WatchedMovieCreate(BaseModel):
+class WatchedMovieCreate(WatchedMovieBase):
     pass
 
 
