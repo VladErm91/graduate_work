@@ -52,6 +52,8 @@ class Like(LikeBase):
 class WatchedMovieBase(BaseModel):
     user_id: UUID
     movie_id: str
+    watched_at: datetime
+    complete:bool
 
 
 class WatchedMovieCreate(BaseModel):
