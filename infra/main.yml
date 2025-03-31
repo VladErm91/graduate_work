@@ -4,7 +4,7 @@ services:
     image: postgres:16-alpine
     restart: always
     env_file:
-      - .env.main
+      - ./envs/.env.main
     environment:
       - POSTGRES_DB=${DB_NAME:-movies_database}
       - POSTGRES_USER=${DB_USER:-app}
@@ -41,14 +41,13 @@ services:
   auth:
     image: rikhoff/auth_service:latest
     restart: always
-    # build: ./auth
     command: uvicorn --app-dir ./auth main:app --host 0.0.0.0 --port 8080
     expose:
       - "8080"
     # ports:
     #   - "8080:8080"
     env_file:
-      - .env.main
+      - ./envs/.env.main
     depends_on:
       db:
         condition: service_healthy
@@ -58,20 +57,21 @@ services:
   jaeger:
     image: jaegertracing/all-in-one:latest
     container_name: jaeger
+    env_file:
+      - ./envs/.env.main
     ports:
-      - ${JAEGER_UDP}:6831/udp
-      - ${JAEGER_PORT}:16686
+      - "6831:6831/udp"
+      - "16686:16686"  
     command: [ "--log-level=debug" ]
     depends_on:
-      - app
+      - movie_api
       - auth
 
 # ---- сервис админки django ----
   django_admin:
     image: rikhoff/django_admin:latest   
-    # build: ./django_admin/app
     env_file:
-      - .env.main
+      - ./envs/.env.main
     expose:
       - "8081"
     # ports:
@@ -84,17 +84,16 @@ services:
         condition: service_healthy
 
 # ---- сервис fastapi ----
-  app:
+  movie_api:
     image: rikhoff/movie_api:latest
     restart: always
-    #build: ./movies_api/app
     command: uvicorn --app-dir ./src main:app --host 0.0.0.0 --port 8000
     env_file:
-      - .env.main
+      - ./envs/.env.main
     expose:
       - "8000"
-    # ports:
-    #   - "8000:8000"
+    ports:
+      - "8000:8000"
     depends_on:
       db:
         condition: service_healthy
@@ -130,10 +129,9 @@ services:
 
   # etl_service:
   #   image: rikhoff/etl_service:latest
-  #   build: ./movies_app/etl/postgres_to_es
   #   restart: always
   #   env_file:
-  #     - ./movies_app/etl/postgres_to_es/.env
+  #     - ./envs/.env.etl
   #   depends_on:
   #     db:
   #       condition: service_healthy
@@ -141,7 +139,6 @@ services:
   #       condition: service_healthy
   #     redis:
   #       condition: service_healthy
-
 
 volumes:
   postgres_data:

@@ -28,7 +28,7 @@ async def _get_batch(loader, batch):
 async def main():
     try:
         logger.info("Запуск ETL процесса")
-        # loader = 
+        # loader =
         transformer = transform_event_data
         extractor = KafkaExtractor(settings.kafkasettings)
 

@@ -46,5 +46,19 @@ class JWTBearer(HTTPBearer):
     def parse_token(jwt_token: str) -> Optional[dict]:
         return decode_token(jwt_token)
 
+    @staticmethod
+    def get_token_from_request(request: Request) -> Optional[str]:
+        """
+        Функция для получения токена из заголовка Authorization.
+
+        Если токен найден в заголовке Authorization, возвращает его строку.
+        """
+        authorization: str = request.headers.get("Authorization")
+        if authorization:
+            parts = authorization.split()
+            if parts[0].lower() == "bearer" and len(parts) == 2:
+                return parts[1]
+        return None
+
 
 security_jwt = JWTBearer()

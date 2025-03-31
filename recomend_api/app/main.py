@@ -1,16 +1,12 @@
 import logging
 from contextlib import asynccontextmanager
 
-from api.v1 import recommend
+from api.v1 import genres, recommend
 from core.config import settings
 from db.db import create_database
 from db.redis import close_redis, init_redis
 from fastapi import FastAPI, Request, status
-from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import ORJSONResponse
-from fastapi_pagination import add_pagination
-
-# from opentelemetry.instrumentation.fastapi import FastAPIInstrumentor
 from starlette.middleware.sessions import SessionMiddleware
 
 # Логгирование
@@ -19,6 +15,11 @@ logging.basicConfig(level=logging.INFO)
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
+    # Инициализация базы данных
+    logging.info("Initializing the database...")
+    await create_database()
+
+    print("Database created successfully.")
     # Инициализация Redis
     logging.info("Initializing Redis...")
     await init_redis()
@@ -52,9 +53,12 @@ async def before_request(request: Request, call_next):
         )
     return response
 
+
 app.add_middleware(SessionMiddleware, secret_key=settings.secret_key)
-app.include_router(recommend.router, prefix="/api/recommend/v1/", tags=["recommend"])
-app.include_router(recommend.router, prefix="/api/genres/v1/", tags=["genres"])
+app.include_router(
+    recommend.router, prefix="/api/recommend/v1/recomm", tags=["recommend"]
+)
+app.include_router(genres.router, prefix="/api/recommend/v1/favorites", tags=["genres"])
 
 
 # Эндпойнт для проверки состояния приложения

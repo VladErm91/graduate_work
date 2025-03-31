@@ -9,7 +9,9 @@ from pydantic import BaseModel, Field
 
 class MovieBase(BaseModel):
     title: str
-    description: str
+    description: Optional[str] = None
+    rating: float
+    genres: str
 
 
 class MovieCreate(MovieBase):
@@ -56,14 +58,12 @@ class WatchedMovieCreate(BaseModel):
     pass
 
 
-
 class WatchedMovie(WatchedMovieBase):
     id: Optional[PyObjectId] = Field(alias="_id", default=None)
 
     class Config:
         from_attributes = True
         json_encoders = {ObjectId: str}
-
 
 
 class ReviewBase(BaseModel):

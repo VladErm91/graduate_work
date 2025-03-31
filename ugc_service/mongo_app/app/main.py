@@ -32,12 +32,8 @@ async def trigger_error():
 # Base.metadata.create_all(bind=engine)
 
 # Подключение маршрутов
-app.include_router(
-    movies.router, prefix="/api/ugc_service/v1/movies", tags=["movies"]
-)
-app.include_router(
-    likes.router, prefix="/api/ugc_service/v1/likes", tags=["likes"]
-)
+app.include_router(movies.router, prefix="/api/ugc_service/v1/movies", tags=["movies"])
+app.include_router(likes.router, prefix="/api/ugc_service/v1/likes", tags=["likes"])
 app.include_router(
     reviews.router, prefix="/api/ugc_service/v1/reviews", tags=["reviews"]
 )

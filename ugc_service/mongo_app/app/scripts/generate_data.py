@@ -14,6 +14,34 @@ db = client[DATABASE_NAME]
 
 # Инициализация Faker
 fake = Faker()
+GENRES = [
+    "Action",
+    "Adventure",
+    "Fantasy",
+    "Sci-Fi",
+    "Drama",
+    "Music",
+    "Romance",
+    "Thriller",
+    "Mystery",
+    "Comedy",
+    "Animation",
+    "Family",
+    "Biography",
+    "Musical",
+    "Crime",
+    "Short",
+    "Western",
+    "Documentary",
+    "History",
+    "War",
+    "Game-Show",
+    "Reality-TV",
+    "Horror",
+    "Sport",
+    "Talk-Show",
+    "News",
+]
 
 # Количество записей для генерации
 NUM_USERS = 100
@@ -23,7 +51,25 @@ NUM_REVIEWS = 100
 NUM_BOOKMARKS = 100
 
 # Размер пачки для вставки
-BATCH_SIZE = 1000
+BATCH_SIZE = 100
+
+# Генерация фильмов
+movies = []
+for _ in range(NUM_MOVIES):
+    movie = {
+        "title": fake.catch_phrase(),
+        "description": fake.text(),
+        "genres": random.choice(GENRES),
+        "rating": round(random.uniform(1, 10), 1),
+    }
+    movies.append(movie)
+    if len(movies) >= BATCH_SIZE:
+        db.movies.insert_many(movies)
+        movies = []
+
+if movies:
+    db.movies.insert_many(movies)
+
 
 # Генерация пользователей
 # users = []
@@ -39,17 +85,6 @@ BATCH_SIZE = 1000
 #         users = []
 # if users:
 #     db.users.insert_many(users)
-
-# Генерация фильмов
-movies = []
-for _ in range(NUM_MOVIES):
-    movie = {"title": fake.catch_phrase(), "description": fake.text()}
-    movies.append(movie)
-    if len(movies) >= BATCH_SIZE:
-        db.movies.insert_many(movies)
-        movies = []
-if movies:
-    db.movies.insert_many(movies)
 
 # # Генерация лайков
 # likes = []

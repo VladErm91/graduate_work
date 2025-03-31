@@ -26,12 +26,15 @@ class PyObjectId(ObjectId):
 class Movie(BaseModel):
     id: Optional[PyObjectId] = Field(alias="_id")
     title: str
-    description: str
+    description: Optional[str] = None
+    rating: float
+    genres: str
 
     class Config:
         from_attributes = True
         populate_by_name = True
         json_encoders = {ObjectId: str}
+
 
 class MovieTimestamp(BaseModel):
     id: Optional[PyObjectId] = Field(alias="_id")
@@ -42,6 +45,7 @@ class MovieTimestamp(BaseModel):
         from_attributes = True
         populate_by_name = True
         json_encoders = {ObjectId: str}
+
 
 class Like(BaseModel):
     id: Optional[PyObjectId] = Field(alias="_id")

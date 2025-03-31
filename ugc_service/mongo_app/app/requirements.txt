@@ -11,5 +11,5 @@ httpx==0.28.1
 pydantic_settings==2.4.0
 sentry_sdk==2.19.2
 beanie==1.25.0
-prometheus-client==0.17.1
-prometheus-fastapi-instrumentator==6.1.0
+asyncpg==0.29.0
+SQLAlchemy==2.0.34

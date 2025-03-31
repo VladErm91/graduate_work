@@ -34,6 +34,7 @@ async def create_movie(
     )
     return created_movie
 
+
 @router.get("/", response_model=List[Movie])
 async def get_movies():
     """
@@ -41,9 +42,7 @@ async def get_movies():
     Returns:
         A list of Movies objects from the database that match the given user_id. dev_endpoint - для проверки генератора
     """
-    movies = convert_objectid(
-        await db.movies.find().to_list(1000)
-    )
+    movies = convert_objectid(await db.movies.find().to_list(1000))
     return movies
 
 
@@ -57,7 +56,7 @@ async def create_movie_timestamp(
 
     Args:
         movie_timestamp: WatchedMovieCreate - The object containing the movie_id.
-                                
+
     Returns:
         The created Movie object from the database.
     """
@@ -69,6 +68,7 @@ async def create_movie_timestamp(
         await db.watched_movies.find_one({"_id": result.inserted_id})
     )
     return created_watched_movies
+
 
 @router.get("/users/{user_id}/movie_timestamp/", response_model=List[WatchedMovie])
 async def get_watched_movies(
