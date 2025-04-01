@@ -17,6 +17,10 @@ class Settings(BaseSettings):
     MINIO_SECRET_KEY: str = "miniopassword"
     MINIO_BUCKET: str = "models"
 
+    # Новые настройки для MongoDB
+    MONGO_URL: str = "mongodb://mongo:27017"  # Укажите ваш URL MongoDB
+    MONGO_DB_NAME: str = "cinema"  # Укажите имя базы
+
     class Config:
         env_file = ".env"
 

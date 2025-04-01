@@ -1,15 +1,15 @@
 # recommendation_service/recommendation_model.py
+
 import implicit
 import numpy as np
 from scipy.sparse import csr_matrix
-from sqlalchemy.ext.asyncio import AsyncSession
-from sqlalchemy import select, func
-from models.watch_history import WatchHistory
+from motor.motor_asyncio import AsyncIOMotorDatabase
+import logging
 from minio import Minio
 from core.config import settings
 import pickle
 import io
-import logging
+from bson import ObjectId
 
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
@@ -75,18 +75,30 @@ class RecommendationModel:
                 f"No model found in MinIO or error loading: {e}, starting fresh."
             )
 
-    async def train(self, db: AsyncSession):
+    async def train(self, db: AsyncIOMotorDatabase):
         logger.info("Starting model training...")
-        stmt = select(WatchHistory.user_id, WatchHistory.movie_id)
-        result = await db.execute(stmt)
-        interactions = result.all()
+        watched_movies = await db["watched_movies"].find().to_list(None)
+        likes = await db["likes"].find().to_list(None)
 
-        if not interactions:
+        if not watched_movies and not likes:
             logger.warning("No interaction data available for training.")
             return
 
-        self.user_ids = sorted(set(user_id for user_id, _ in interactions))
-        self.movie_ids = sorted(set(movie_id for _, movie_id in interactions))
+        interactions = []
+        for wm in watched_movies:
+            user_id = str(wm["user_id"])
+            movie_id = str(wm["movie_id"])
+            weight = 1.0 if wm["complete"] else 0.5
+            interactions.append((user_id, movie_id, weight))
+
+        for like in likes:
+            user_id = str(like["user_id"])
+            movie_id = str(like["movie_id"])
+            weight = like["rating"] / 10.0
+            interactions.append((user_id, movie_id, weight))
+
+        self.user_ids = sorted(set(user_id for user_id, _, _ in interactions))
+        self.movie_ids = sorted(set(movie_id for _, movie_id, _ in interactions))
         self.user_to_idx = {user_id: idx for idx, user_id in enumerate(self.user_ids)}
         self.movie_to_idx = {
             movie_id: idx for idx, movie_id in enumerate(self.movie_ids)
@@ -95,9 +107,9 @@ class RecommendationModel:
             idx: movie_id for movie_id, idx in self.movie_to_idx.items()
         }
 
-        rows = [self.user_to_idx[user_id] for user_id, _ in interactions]
-        cols = [self.movie_to_idx[movie_id] for _, movie_id in interactions]
-        data = np.ones(len(interactions))
+        rows = [self.user_to_idx[user_id] for user_id, _, _ in interactions]
+        cols = [self.movie_to_idx[movie_id] for _, movie_id, _ in interactions]
+        data = [weight for _, _, weight in interactions]
         self.user_item_matrix = csr_matrix(
             (data, (rows, cols)), shape=(len(self.user_ids), len(self.movie_ids))
         )
@@ -106,62 +118,80 @@ class RecommendationModel:
         self.save_model()
         logger.info("Model training completed.")
 
-    async def get_user_row(self, user_id: str, db: AsyncSession) -> csr_matrix:
-        """Получаем строку взаимодействий для конкретного пользователя."""
-        stmt = select(WatchHistory.movie_id).where(WatchHistory.user_id == user_id)
-        result = await db.execute(stmt)
-        watched_movies = result.scalars().all()
+    async def get_user_row(self, user_id: str, db: AsyncIOMotorDatabase) -> csr_matrix:
+        # Получаем просмотры пользователя из MongoDB
+        watched = (
+            await db["watched_movies"]
+            .find({"user_id": ObjectId(user_id)})
+            .to_list(None)
+        )
+        likes = await db["likes"].find({"user_id": ObjectId(user_id)}).to_list(None)
 
-        if not watched_movies:
-            # Если у пользователя нет просмотров, возвращаем пустую строку
-            return csr_matrix((1, len(self.movie_ids)), dtype=np.float32)
+        # Формируем словарь с весами взаимодействий
+        movie_weights = {str(like["movie_id"]): like["rating"] / 10.0 for like in likes}
+        for wm in watched:
+            movie_id = str(wm["movie_id"])
+            if movie_id not in movie_weights:
+                movie_weights[movie_id] = 1.0 if wm["complete"] else 0.5
 
+        # Создаём разреженную строку для пользователя
         cols = [
             self.movie_to_idx[movie_id]
-            for movie_id in watched_movies
+            for movie_id in movie_weights
             if movie_id in self.movie_to_idx
         ]
-        data = np.ones(len(cols))
-        rows = np.zeros(len(cols))  # Одна строка (индекс 0)
+        data = [
+            movie_weights[movie_id]
+            for movie_id in movie_weights
+            if movie_id in self.movie_to_idx
+        ]
+        rows = np.zeros(len(cols))
         return csr_matrix((data, (rows, cols)), shape=(1, len(self.movie_ids)))
 
     async def get_recommendations(
-        self, user_id: str, db: AsyncSession, n: int = 3
-    ) -> list[str]:
-        # Если модель не обучена, возвращаем популярные фильмы
+        self, user_id: str, db: AsyncIOMotorDatabase, n: int = 3
+    ) -> dict:
+        # Если модель не обучена или нет данных
         if self.user_item_matrix is None or not self.user_ids:
-            stmt = (
-                select(WatchHistory.movie_id)
-                .group_by(WatchHistory.movie_id)
-                .order_by(func.count().desc())
-                .limit(n)
+            popular = (
+                await db["movies"]
+                .aggregate([{"$sort": {"rating": -1}}, {"$limit": n}])
+                .to_list(n)
             )
-            popular = (await db.execute(stmt)).scalars().all()
+            recommendations = (
+                [str(movie["_id"]) for movie in popular] if popular else []
+            )
             logger.info(
-                f"Returning popular movies for user {user_id} (no model or data)"
+                f"Returning popular movies for user {user_id} (no model): {recommendations}"
             )
-            return list(popular) if popular else ["movie1", "movie2", "movie3"]
+            return {"source": "popular", "recommendations": recommendations}
 
         # Получаем строку взаимодействий пользователя
         user_row = await self.get_user_row(user_id, db)
 
-        # Если пользователь новый, возвращаем популярные фильмы
+        # Если пользователь новый
         if user_id not in self.user_to_idx:
-            stmt = (
-                select(WatchHistory.movie_id)
-                .group_by(WatchHistory.movie_id)
-                .order_by(func.count().desc())
-                .limit(n)
+            popular = (
+                await db["movies"]
+                .aggregate([{"$sort": {"rating": -1}}, {"$limit": n}])
+                .to_list(n)
             )
-            popular = (await db.execute(stmt)).scalars().all()
-            logger.info(f"Returning popular movies for new user {user_id}")
-            return list(popular) if popular else ["movie1", "movie2", "movie3"]
+            recommendations = (
+                [str(movie["_id"]) for movie in popular] if popular else []
+            )
+            logger.info(
+                f"Returning popular movies for new user {user_id}: {recommendations}"
+            )
+            return {"source": "popular", "recommendations": recommendations}
 
+        # Генерация рекомендаций через ALS
         user_idx = self.user_to_idx[user_id]
-        stmt = select(WatchHistory.movie_id).where(WatchHistory.user_id == user_id)
-        watched = set((await db.execute(stmt)).scalars().all())
-
-        # Передаём строку пользователя вместо полной матрицы
+        watched = set(
+            str(wm["movie_id"])
+            for wm in await db["watched_movies"]
+            .find({"user_id": ObjectId(user_id)})
+            .to_list(None)
+        )
         recommended_ids, _ = self.model.recommend(
             user_idx, user_row, N=n + len(watched)
         )
@@ -170,8 +200,19 @@ class RecommendationModel:
             for idx in recommended_ids
             if idx in self.idx_to_movie and self.idx_to_movie[idx] not in watched
         ][:n]
-        logger.info(f"Generated recommendations for user {user_id}: {recommendations}")
-        return recommendations if recommendations else ["movie1", "movie2", "movie3"]
+        if not recommendations:
+            popular = (
+                await db["movies"]
+                .aggregate([{"$sort": {"rating": -1}}, {"$limit": n}])
+                .to_list(n)
+            )
+            recommendations = (
+                [str(movie["_id"]) for movie in popular] if popular else []
+            )
+        logger.info(
+            f"Generated recommendations for user {user_id} using ALS: {recommendations}"
+        )
+        return {"source": "als", "recommendations": recommendations}
 
 
 recommendation_model = RecommendationModel()
