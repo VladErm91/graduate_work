@@ -18,3 +18,14 @@ class WatchHistory(Base):
     completed = Column(Boolean, default=False)
     user = relationship("User")
     movie = relationship("Movie")
+
+# class WatchHistory(Base):
+#     __tablename__ = "watch_history"
+
+#     id = Column(String, primary_key=True, index=True)
+#     user_id = Column(String, ForeignKey("users.user_id"))  # Исправлено на users.user_id
+#     movie_id = Column(String, ForeignKey("movies.movie_id"))
+#     watched_at = Column(DateTime(timezone=True), default=lambda: datetime.now(timezone.utc))
+#     completed = Column(Boolean, default=False)
+#     user = relationship("User")
+#     movie = relationship("Movie")

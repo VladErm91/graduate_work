@@ -12,3 +12,12 @@ class Movie(Base):
     genres = Column(String)
     directors = Column(String)
     rating = Column(Float)
+
+# class Movie(Base):
+#     __tablename__ = "movies"
+
+#     id = Column(String(255), primary_key=True, nullable=False)
+#     title = Column(String(255), nullable=False)
+#     description = Column(Text, nullable=False)
+#     rating = Column(Float, nullable=False)
+#     genres = Column(ARRAY(String), nullable=False)

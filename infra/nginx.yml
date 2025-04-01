@@ -10,7 +10,8 @@ services:
     depends_on:
       - django_admin
       - auth
-      - app
+      - movie_api
+      - ugc_service
       # - file_api
     ports:
       - "80:80"

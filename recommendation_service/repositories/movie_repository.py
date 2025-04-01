@@ -2,7 +2,7 @@
 
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.future import select
-from models.models import Movie
+from models.movie import Movie
 
 
 class MovieRepository:

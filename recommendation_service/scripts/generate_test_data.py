@@ -119,6 +119,7 @@ async def generate_data():
             Movie(
                 movie_id=str(uuid.uuid4()),
                 title=m["title"],
+                # description=m["description"],
                 genres=m["genres"],
                 directors=m["directors"],
                 rating=m["rating"],

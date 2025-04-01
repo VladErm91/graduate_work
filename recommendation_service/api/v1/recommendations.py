@@ -3,7 +3,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from core.database import get_db
 from core.redis import get_redis
 from redis.asyncio import Redis as AsyncRedis
-from recommendation_model import recommendation_model
+from recommendation_service.ml.recommendation_model import recommendation_model
 import json
 import logging
 

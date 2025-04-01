@@ -2,16 +2,16 @@ import os
 from logging import config as logging_config
 
 from core.logger import LOGGING
+from motor.motor_asyncio import AsyncIOMotorClient
 from pydantic import Field
 from pydantic_settings import BaseSettings
-from typing import Dict
-
 
 # Корень проекта
 BASE_DIR = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 
+
 class Settings(BaseSettings):
-    project_name: str = "auth"
+    project_name: str = "recomend_api"
 
     # db
     db_name: str = Field(default="movies_database", alias="DB_NAME")
@@ -19,6 +19,14 @@ class Settings(BaseSettings):
     db_password: str = Field(default="123qwe", alias="DB_PASSWORD")
     db_host: str = Field(default="127.0.0.1", alias="DB_HOST")
     db_port: int = Field(default=5432, alias="DB_PORT")
+
+    # Настройки базы данных
+    MONGO_URL: str = "mongodb://mongodb:27017"
+    url_movies_search: str = "http://movie_api:8000/api/v1/films/"
+    url_movies_id: str = "http://movie_api:8000/api/v1/films/{film_uuid}"
+    ML_SERVICE = "ml-service:8060"
+
+    DATABASE_NAME: str = "cinema"
 
     # Настройки Redis
     redis_host: str = Field("127.0.0.1", alias="REDIS_HOST")
@@ -39,16 +47,11 @@ class Settings(BaseSettings):
     def get_url(self) -> str:
         return f"postgresql+asyncpg://{self.db_user}:{self.db_password}@{self.db_host}:{self.db_port}/{self.db_name}"
 
-    # Tracing
-    enable_tracing: bool = Field(default=False, env="ENABLE_TRACING")
-    jaeger_host: str = Field(default="jaeger", env="JAEGER_HOST")
-    jaeger_port: int = Field(default=6831, env="JAEGER_UDP")
-    request_limit_per_minute: int = 20
-    # class Config:
-    #     env_file = ".env"
-
 
 # Применяем настройки логирования
 logging_config.dictConfig(LOGGING)
 
 settings = Settings()
+
+client = AsyncIOMotorClient(settings.MONGO_URL)
+db = client[settings.DATABASE_NAME]

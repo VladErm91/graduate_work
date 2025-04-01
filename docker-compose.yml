@@ -1,4 +1,25 @@
 include:
   - './infra/main.yml'
-  - './infra/ugc.yml'
+  # - './infra/ugc.yml'
+  - './ugc_service/ugc.yml'
   - './infra/nginx.yml'
+
+services:
+
+  recommend:
+    build: ./recomend_api/app
+    restart: always
+    command: uvicorn --app-dir ./src main:app --host 0.0.0.0 --port 8084
+    env_file:
+      - .env
+    expose:
+      - "8084"
+    ports:
+      - "8084:8084"
+    depends_on:
+      db:
+        condition: service_healthy
+      elastic:
+        condition: service_healthy
+      redis:
+        condition: service_healthy

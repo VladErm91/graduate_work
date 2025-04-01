@@ -20,5 +20,5 @@ app.lifespan_context = lifespan
 app.include_router(
     recommendations.router, prefix="/recommendations", tags=["Recommendations"]
 )
-app.include_router(history.router, prefix="/history", tags=["History"])
+#app.include_router(history.router, prefix="/history", tags=["History"])
 # app.include_router(metrics.router, prefix="/metrics", tags=["Metrics"])

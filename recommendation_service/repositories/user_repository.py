@@ -11,7 +11,7 @@ class UserRepository:
         result = await db.execute(stmt)
         user = result.scalar_one_or_none()
         if user is None:
-            user = User(user_id=user_id, username=f"user_{user_id[:8]}", age=25)
+            user = User(user_id=user_id, first_name=f"user_{user_id[:8]}")
             db.add(user)
             await db.commit()
             return "A" if random.choice([True, False]) else "B"
