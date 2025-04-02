@@ -5,7 +5,7 @@ from bson import ObjectId
 from faker import Faker
 
 # Настройки подключения к MongoDB
-MONGO_URL = "mongodb://localhost:27017"
+MONGO_URL = "mongodb://mongodb:27017"
 DATABASE_NAME = "cinema"
 
 # Подключение к MongoDB
@@ -73,19 +73,19 @@ BATCH_SIZE = 100
 
 
 # Генерация пользователей
-users = []
-for _ in range(NUM_USERS):
-    user = {
-        "username": fake.user_name(),
-        "email": fake.email(),
-        "hashed_password": fake.password(),
-    }
-    users.append(user)
-    if len(users) >= BATCH_SIZE:
-        db.users.insert_many(users)
-        users = []
-if users:
-    db.users.insert_many(users)
+# users = []
+# for _ in range(NUM_USERS):
+#     user = {
+#         "username": fake.user_name(),
+#         "email": fake.email(),
+#         "hashed_password": fake.password(),
+#     }
+#     users.append(user)
+#     if len(users) >= BATCH_SIZE:
+#         db.users.insert_many(users)
+#         users = []
+# if users:
+#     db.users.insert_many(users)
 
 # Генерация лайков
 likes = []
@@ -142,7 +142,7 @@ for _ in range(NUM_WATCHEDFILMS):
         "user_id": ObjectId(random.choice(db.users.find().distinct("_id"))),
         "movie_id": ObjectId(random.choice(db.movies.find().distinct("_id"))),
         "watched_at": fake.date_time_this_decade(),
-        "complete": random.choice(bool)
+        "complete": random.choice([True, False])
     }
     watched_films.append(watched_film)
     if len(watched_films) >= BATCH_SIZE:

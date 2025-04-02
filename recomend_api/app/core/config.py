@@ -24,7 +24,7 @@ class Settings(BaseSettings):
     MONGO_URL: str = "mongodb://mongodb:27017"
     url_movies_search: str = "http://movie_api:8000/api/v1/films/"
     url_movies_id: str = "http://movie_api:8000/api/v1/films/{film_uuid}"
-    ML_SERVICE = "ml-service:8060"
+    # ML_SERVICE: str  = "ml-service:8060"
 
     DATABASE_NAME: str = "cinema"
 

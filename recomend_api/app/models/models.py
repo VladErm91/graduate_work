@@ -1,42 +1,46 @@
+from datetime import datetime
 from typing import List, Optional
 
-from bson import ObjectId
-from pydantic import BaseModel
+from pydantic import BaseModel, Field
 
 
-class PyObjectId(ObjectId):
-    @classmethod
-    def __get_validators__(cls):
-        yield cls.validate
-
-    @classmethod
-    def validate(cls, v):
-        if not ObjectId.is_valid(v):
-            raise ValueError("Invalid objectid")
-        return ObjectId(v)
-
-    @classmethod
-    def __get_pydantic_core_schema__(cls, source, handler):
-        from pydantic_core import core_schema
-
-        return core_schema.str_schema()
+# Определяем Pydantic-модели
+class Likes(BaseModel):
+    id: Optional[str] = Field(alias="_id", default=None) 
+    user_id: str
+    movie_id: str
+    rating: float
 
 
-class MovieBase(BaseModel):
-    id: Optional[PyObjectId]
-    title: str
-    description: Optional[str] = None
-    genres: list[str]
-    rating: Optional[float] = None
+class Reviews(BaseModel):
+    id: Optional[str] = Field(alias="_id", default=None) 
+    user_id: str
+    movie_id: str
+    content: str
+    # publication_date: datetime
+    # additional_data: Optional[dict] = None
+    likes: Optional[int] = 0
+    dislikes: Optional[int] = 0
 
-    class Config:
-        from_attributes = True  # Позволяет работать с ORM
-        json_encoders = {ObjectId: str}  # Кодируем ObjectId в строку
+
+class Bookmarks(BaseModel):
+    id: Optional[str] = Field(alias="_id", default=None) 
+    user_id: str
+    movie_id: str
 
 
-class UserAnalysisRequest(BaseModel):
-    likes: List[str] = []
-    reviews: List[str] = []
-    bookmarks: List[str] = []
-    movie_timestamps: List[str] = []
+class WatchedMovies(BaseModel):
+    id: Optional[str] = Field(alias="_id", default=None) 
+    user_id: str
+    movie_id: str
+    watched_at: datetime
+    complete: bool
+
+
+# Pydantic-схема для запроса данных пользователя
+class UserDataRequest(BaseModel):
+    likes: List[Likes] = []
+    reviews: List[Reviews] = []
+    bookmarks: List[Bookmarks] = []
+    watched_movies: List[WatchedMovies] = []
     genres: List[str] = []

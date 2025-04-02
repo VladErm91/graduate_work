@@ -1,7 +1,8 @@
 # recommendation_service/core/minio_client.py
 
-from minio import Minio
 import os
+
+from minio import Minio
 
 MINIO_ENDPOINT = os.getenv("MINIO_ENDPOINT", "minio:9000")
 MINIO_ACCESS_KEY = os.getenv("MINIO_ROOT_USER", "admin")

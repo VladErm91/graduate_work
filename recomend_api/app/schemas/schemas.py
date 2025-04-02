@@ -1,17 +1,34 @@
-from db.db import Base
-from sqlalchemy import ARRAY, Column, Float, String, Text
-from sqlalchemy.dialects.postgresql import UUID
+from typing import List, Optional
+
+from bson import ObjectId
+from pydantic import BaseModel
 
 
-class Movies(Base):
-    __tablename__ = "movies"
+class PyObjectId(ObjectId):
+    @classmethod
+    def __get_validators__(cls):
+        yield cls.validate
 
-    id = Column(String(255), primary_key=True, nullable=False)
-    title = Column(String(255), nullable=False)
-    description = Column(Text, nullable=False)
-    rating = Column(Float, nullable=False)
-    genres = Column(ARRAY(String), nullable=False)
+    @classmethod
+    def validate(cls, v):
+        if not ObjectId.is_valid(v):
+            raise ValueError("Invalid objectid")
+        return ObjectId(v)
+
+    @classmethod
+    def __get_pydantic_core_schema__(cls, source, handler):
+        from pydantic_core import core_schema
+
+        return core_schema.str_schema()
+
+
+class MovieBase(BaseModel):
+    id: Optional[PyObjectId]
+    title: str
+    description: Optional[str] = None
+    genres: list[str]
+    rating: Optional[float] = None
 
     class Config:
-        from_attributes = True
-        json_encoders = {UUID: str}
+        from_attributes = True  # Позволяет работать с ORM
+        json_encoders = {ObjectId: str}  # Кодируем ObjectId в строку
