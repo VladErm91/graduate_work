@@ -1,3 +1,5 @@
+# recommendation_service/ml/scheduler.py
+
 from rq_scheduler import Scheduler
 from core.redis import get_sync_redis
 from recommendation_service.ml.tasks import update_all_recommendations, train_model

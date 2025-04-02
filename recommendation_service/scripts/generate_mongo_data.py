@@ -1,3 +1,5 @@
+# recommendation_service/scripts/generate_mongo_data.py
+
 import random
 import pymongo
 from faker import Faker

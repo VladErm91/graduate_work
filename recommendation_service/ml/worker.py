@@ -1,4 +1,4 @@
-# recommendation_service/worker.py
+# recommendation_service/ml/worker.py
 
 import asyncio
 from core.kafka_utils import get_consumer

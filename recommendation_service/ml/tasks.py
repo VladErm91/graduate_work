@@ -1,4 +1,4 @@
-# recommendation_service/tasks.py
+# recommendation_service/ml/tasks.py
 
 from rq import Queue
 from core.redis import get_redis, get_sync_redis
