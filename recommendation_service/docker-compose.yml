@@ -80,6 +80,12 @@ services:
       - MINIO_SECRET_KEY=miniopassword
       - MINIO_BUCKET=models
       - OPENBLAS_NUM_THREADS=1
+    
+  metrics:
+    build: ./ml
+    command: python evaluate_metrics.py
+    depends_on:
+      - mongo
 
   redis:
     image: redis:latest

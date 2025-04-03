@@ -68,7 +68,7 @@ for _ in range(NUM_MOVIES):
     movie = {
         "title": fake.catch_phrase(),
         "description": fake.text(),
-        "genres": random.choice(GENRES),  # Оставляем строку, как в модели
+        "genres": random.sample(GENRES, k=random.randint(1, 3)),
         "rating": round(random.uniform(1, 10), 1),
     }
     movies.append(movie)
