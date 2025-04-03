@@ -128,21 +128,13 @@ class RecommendationModel:
             logger.warning("No interaction data available for training.")
             return
 
-        interactions = (
-            [
-                (
-                    str(wm["user_id"]),
-                    str(wm["movie_id"]),
-                    1.0 if wm["complete"] else 0.5,
-                )
-                for wm in watched_movies
-            ]
-            + [
-                (str(like["user_id"]), str(like["movie_id"]), like["rating"] / 10.0)
-                for like in likes
-            ]
-            + [(str(bm["user_id"]), str(bm["movie_id"]), 0.3) for bm in bookmarks]
-        )
+        interactions = [
+            (str(wm["user_id"]), str(wm["movie_id"]), 1.0 if wm["complete"] else 0.5) for wm in watched_movies
+        ] + [
+            (str(like["user_id"]), str(like["movie_id"]), like["rating"] / 10.0) for like in likes
+        ] + [
+            (str(bm["user_id"]), str(bm["movie_id"]), 0.3) for bm in bookmarks
+        ]
 
         self.user_ids = sorted(set(user_id for user_id, _, _ in interactions))
         self.movie_ids = sorted(set(movie_id for _, movie_id, _ in interactions))
@@ -153,25 +145,24 @@ class RecommendationModel:
         rows = [self.user_to_idx[uid] for uid, _, _ in interactions]
         cols = [self.movie_to_idx[mid] for _, mid, _ in interactions]
         data = [weight for _, _, weight in interactions]
-        self.als_user_item_matrix = csr_matrix(
-            (data, (rows, cols)), shape=(len(self.user_ids), len(self.movie_ids))
-        )
-        self.lightfm_user_item_matrix = coo_matrix(
-            (data, (rows, cols)), shape=(len(self.user_ids), len(self.movie_ids))
-        )
+        self.als_user_item_matrix = csr_matrix((data, (rows, cols)), shape=(len(self.user_ids), len(self.movie_ids)))
+        self.lightfm_user_item_matrix = coo_matrix((data, (rows, cols)), shape=(len(self.user_ids), len(self.movie_ids)))
 
+        # Подготовка item_features в формате CSR
         movies = await db["movies"].find().to_list(None)
-        genres = [
-            movie["genres"] if isinstance(movie["genres"], list) else [movie["genres"]]
-            for movie in movies
-        ]
-        mlb = MultiLabelBinarizer()
-        self.item_features = mlb.fit_transform(genres)
+        genres = [movie["genres"] if isinstance(movie["genres"], list) else [movie["genres"]] for movie in movies]
+        mlb = MultiLabelBinarizer(sparse_output=True)  # Возвращаем разреженную матрицу
+        sparse_features = mlb.fit_transform(genres)
+        self.item_features = sparse_features.tocsr()  # Преобразуем в CSR
+
+        # Проверка соответствия размеров
+        if self.item_features.shape[0] != len(self.movie_ids):
+            logger.warning("Mismatch between item_features and movie_ids. Adjusting item_features...")
+            # Если нужно, можно дополнить или обрезать item_features до нужного размера
+            self.item_features = self.item_features[:len(self.movie_ids), :]
 
         self.als_model.fit(self.als_user_item_matrix)
-        self.lightfm_model.fit(
-            self.lightfm_user_item_matrix, item_features=self.item_features, epochs=10
-        )
+        self.lightfm_model.fit(self.lightfm_user_item_matrix, item_features=self.item_features, epochs=10)
         self.save_models()
         logger.info("Model training completed for ALS and LightFM.")
 

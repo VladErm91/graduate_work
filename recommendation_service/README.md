@@ -196,3 +196,8 @@
 ### Итог
 Проект состоит из FastAPI (API), `Recommendation Model` (логика), MongoDB (данные), Redis (кэш/очереди), RQ (асинхронность), MinIO (хранение моделей), RQ Scheduler (расписание) и Metrics (анализ). Всё работает в связке, обеспечивая асинхронное обучение, рекомендации и A/B-тестирование.
 
+```bash
+docker-compose exec fastapi python scripts/generate_mongo_data.py
+docker-compose exec fastapi python -c "from workers.tasks import train_model; train_model()"
+docker-compose exec fastapi python ml/evaluate_metrics.py
+```

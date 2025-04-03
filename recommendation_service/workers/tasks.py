@@ -59,7 +59,9 @@ async def train_model_async():
 
 
 def train_model():
-    asyncio.run(train_model_async())
+    queue = get_queue()
+    queue.enqueue(train_model_async)  # Ставим задачу в очередь
+    logger.info("Enqueued model training task")
 
 
 async def schedule_training():

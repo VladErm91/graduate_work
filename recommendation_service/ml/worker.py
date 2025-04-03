@@ -2,7 +2,7 @@
 
 import asyncio
 from core.kafka_utils import get_consumer
-from recommendation_service.ml.tasks import get_queue, update_recommendations
+from ml.tasks import get_queue, update_recommendations
 
 
 async def process_message(message):

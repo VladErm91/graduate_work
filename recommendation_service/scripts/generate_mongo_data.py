@@ -5,7 +5,7 @@ import pymongo
 from faker import Faker
 
 # Настройки подключения к MongoDB
-MONGO_URL = "mongodb://localhost:27017"
+MONGO_URL = "mongodb://mongo:27017"
 DATABASE_NAME = "cinema"
 
 # Подключение к MongoDB

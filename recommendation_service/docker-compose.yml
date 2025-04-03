@@ -3,9 +3,7 @@
 services:
 
   fastapi:
-    build:
-      context: .
-      dockerfile: Dockerfile
+    build: .
     container_name: recommendation_service
     restart: always
     depends_on:
@@ -49,7 +47,7 @@ services:
       - OPENBLAS_NUM_THREADS=1
 
   rq_worker:
-    build: ./ml
+    build: .
     command: rq worker --url redis://redis:6379/0
     depends_on:
       - redis
@@ -68,12 +66,13 @@ services:
       - OPENBLAS_NUM_THREADS=1
 
   rq_scheduler:
-    build: ./ml
-    command: python scheduler.py
+    build: .
+    command: python ml/scheduler.py
     depends_on:
       - redis
       - minio
     environment:
+      - PYTHONPATH=/app
       - REDIS_URL=redis://redis:6379/0
       - MINIO_ENDPOINT=minio:9000
       - MINIO_ACCESS_KEY=minioadmin

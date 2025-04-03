@@ -1,7 +1,7 @@
 # recommendation_service/scheduler.py
 from rq_scheduler import Scheduler
 from core.redis import get_sync_redis
-from tasks import update_all_recommendations, train_model  # Исправлен путь импорта
+from workers.tasks import update_all_recommendations, train_model  # Исправлен путь импорта
 import asyncio
 import logging
 
