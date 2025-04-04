@@ -3,7 +3,7 @@
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.future import select
 from models.movie import Movie
-from schemas.schemas import Movie
+
 
 class MovieRepository:
     @staticmethod

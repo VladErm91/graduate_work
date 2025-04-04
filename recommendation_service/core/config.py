@@ -10,14 +10,16 @@ class Settings(BaseSettings):
     POSTGRES_DB: str = "recommendations"
     POSTGRES_HOST: str = "postgres"
     POSTGRES_PORT: int = 5432
-
     REDIS_URL: str = "redis://redis:6379/0"
     KAFKA_BOOTSTRAP_SERVERS: str = "kafka:9092"
-    
     MINIO_ENDPOINT: str = "minio:9000"
     MINIO_ACCESS_KEY: str = "minioadmin"
     MINIO_SECRET_KEY: str = "miniopassword"
     MINIO_BUCKET: str = "models"
+
+    # Новые настройки для MongoDB
+    MONGO_URL: str = "mongodb://mongo:27017"  # Укажите ваш URL MongoDB
+    MONGO_DB_NAME: str = "cinema"  # Укажите имя базы
 
     class Config:
         env_file = ".env"

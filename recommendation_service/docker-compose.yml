@@ -3,24 +3,16 @@
 services:
 
   fastapi:
-    build:
-      context: .
-      dockerfile: Dockerfile
+    build: .
     container_name: recommendation_service
     restart: always
     depends_on:
-      - postgres
       - redis
+      - mongo
       - kafka
       - minio
     environment:
       PYTHONPATH: /app
-      DATABASE_URL: postgresql+asyncpg://admin:password@postgres:5432/recommendations
-      POSTGRES_USER: admin
-      POSTGRES_PASSWORD: password
-      POSTGRES_HOST: postgres
-      POSTGRES_PORT: 5432
-      POSTGRES_DB: recommendations
       REDIS_URL: redis://redis:6379/0
       KAFKA_BOOTSTRAP_SERVERS: kafka:9092
       MINIO_ENDPOINT: minio:9000
@@ -38,7 +30,7 @@ services:
     command: python worker.py
     depends_on:
       - redis
-      - kafka
+      # - kafka
       - minio
     environment:
       - POSTGRES_USER=admin
@@ -55,7 +47,7 @@ services:
       - OPENBLAS_NUM_THREADS=1
 
   rq_worker:
-    build: ./ml
+    build: .
     command: rq worker --url redis://redis:6379/0
     depends_on:
       - redis
@@ -74,31 +66,25 @@ services:
       - OPENBLAS_NUM_THREADS=1
 
   rq_scheduler:
-    build: ./ml
-    command: python scheduler.py
+    build: .
+    command: python ml/scheduler.py
     depends_on:
       - redis
       - minio
     environment:
+      - PYTHONPATH=/app
       - REDIS_URL=redis://redis:6379/0
       - MINIO_ENDPOINT=minio:9000
       - MINIO_ACCESS_KEY=minioadmin
       - MINIO_SECRET_KEY=miniopassword
       - MINIO_BUCKET=models
       - OPENBLAS_NUM_THREADS=1
-
-  postgres:
-    image: postgres:15
-    container_name: postgres
-    restart: always
-    environment:
-      POSTGRES_USER: admin
-      POSTGRES_PASSWORD: password
-      POSTGRES_DB: recommendations
-    ports:
-      - "5432:5432"
-    volumes:
-      - postgres_data:/var/lib/postgresql/data
+    
+  metrics:
+    build: ./ml
+    command: python evaluate_metrics.py
+    depends_on:
+      - mongo
 
   redis:
     image: redis:latest
@@ -109,28 +95,28 @@ services:
     volumes:
       - redis_data:/data
 
-  # zookeeper:
-  #   image: confluentinc/cp-zookeeper:latest
-  #   environment:
-  #     ZOOKEEPER_CLIENT_PORT: 2181
-  #     ZOOKEEPER_TICK_TIME: 2000
-  #   ports:
-  #     - "2181:2181"
+  zookeeper:
+    image: confluentinc/cp-zookeeper:latest
+    environment:
+      ZOOKEEPER_CLIENT_PORT: 2181
+      ZOOKEEPER_TICK_TIME: 2000
+    ports:
+      - "2181:2181"
 
-  # kafka:
-  #   image: confluentinc/cp-kafka:latest
-  #   environment:
-  #     - KAFKA_BROKER_ID=1
-  #     - KAFKA_ZOOKEEPER_CONNECT=zookeeper:2181
-  #     - KAFKA_ADVERTISED_LISTENERS=PLAINTEXT://kafka:9092
-  #     - KAFKA_LISTENER_SECURITY_PROTOCOL_MAP=PLAINTEXT:PLAINTEXT
-  #     - KAFKA_OFFSETS_TOPIC_REPLICATION_FACTOR=1
-  #   ports:
-  #     - "9092:9092"
-  #   depends_on:
-  #     - zookeeper
-  #   volumes:
-  #   - kafka_data:/var/lib/kafka/data
+  kafka:
+    image: confluentinc/cp-kafka:latest
+    environment:
+      - KAFKA_BROKER_ID=1
+      - KAFKA_ZOOKEEPER_CONNECT=zookeeper:2181
+      - KAFKA_ADVERTISED_LISTENERS=PLAINTEXT://kafka:9092
+      - KAFKA_LISTENER_SECURITY_PROTOCOL_MAP=PLAINTEXT:PLAINTEXT
+      - KAFKA_OFFSETS_TOPIC_REPLICATION_FACTOR=1
+    ports:
+      - "9092:9092"
+    depends_on:
+      - zookeeper
+    volumes:
+    - kafka_data:/var/lib/kafka/data
 
   minio:
     image: minio/minio
@@ -146,8 +132,17 @@ services:
     volumes:
       - minio_data:/data
 
+  mongo:
+    image: mongo
+    ports:
+      - 27017:27017
+    volumes:
+      - mongo_data:/data/db
+    restart: unless-stopped
+
+
 volumes:
-  postgres_data:
   redis_data:
   minio_data:
   kafka_data:
+  mongo_data:

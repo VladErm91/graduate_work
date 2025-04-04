@@ -1,7 +1,8 @@
 # recommendation_service/models/movie.py
 
-from sqlalchemy import Column, String, Float, ARRAY, Column, Text
+from sqlalchemy import Column, String, Float
 from core.database import Base
+
 
 class Movie(Base):
     __tablename__ = "movies"

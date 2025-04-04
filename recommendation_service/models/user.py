@@ -1,8 +1,8 @@
 # recommendation_service/models/user.py
 
-from sqlalchemy import Column, String, Integer, UUID
+from sqlalchemy import Column, String, Integer
 from core.database import Base
-# import uuid 
+
 
 class User(Base):
     __tablename__ = "users"

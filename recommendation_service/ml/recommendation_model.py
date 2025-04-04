@@ -1,31 +1,37 @@
 # recommendation_service/recommendation_model.py
 import implicit
 import numpy as np
-from scipy.sparse import csr_matrix
-from sqlalchemy.ext.asyncio import AsyncSession
-from sqlalchemy import select, func
-from models.watch_history import WatchHistory
+from scipy.sparse import csr_matrix, coo_matrix
+from lightfm import LightFM
+from motor.motor_asyncio import AsyncIOMotorDatabase
+import logging
 from minio import Minio
 from core.config import settings
 import pickle
 import io
-import logging
+from bson import ObjectId
+from sklearn.preprocessing import MultiLabelBinarizer
+import uuid
 
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
 
-MODEL_KEY = "recommendation_model.pkl"
+ALS_MODEL_KEY = "als_model.pkl"
+LIGHTFM_MODEL_KEY = "lightfm_model.pkl"
 
 
 class RecommendationModel:
     def __init__(self):
-        self.model = implicit.als.AlternatingLeastSquares(factors=20, iterations=10)
+        self.als_model = implicit.als.AlternatingLeastSquares(factors=20, iterations=10)
+        self.lightfm_model = LightFM(no_components=20, learning_rate=0.05, loss="warp")
         self.user_ids = []
         self.movie_ids = []
         self.user_to_idx = {}
         self.movie_to_idx = {}
         self.idx_to_movie = {}
-        self.user_item_matrix = None
+        self.als_user_item_matrix = None
+        self.lightfm_user_item_matrix = None
+        self.item_features = None
         self.minio_client = Minio(
             settings.MINIO_ENDPOINT,
             access_key=settings.MINIO_ACCESS_KEY,
@@ -33,145 +39,270 @@ class RecommendationModel:
             secure=False,
         )
         self.ensure_bucket()
-        self.load_model()
+        self.load_models()
 
     def ensure_bucket(self):
         if not self.minio_client.bucket_exists(settings.MINIO_BUCKET):
             self.minio_client.make_bucket(settings.MINIO_BUCKET)
             logger.info(f"Created MinIO bucket: {settings.MINIO_BUCKET}")
 
-    def save_model(self):
-        data = {
-            "model": self.model,
+    def save_models(self):
+        als_data = {
+            "model": self.als_model,
             "user_ids": self.user_ids,
             "movie_ids": self.movie_ids,
             "user_to_idx": self.user_to_idx,
             "movie_to_idx": self.movie_to_idx,
             "idx_to_movie": self.idx_to_movie,
-            "user_item_matrix": self.user_item_matrix,
+            "user_item_matrix": self.als_user_item_matrix,
         }
         buffer = io.BytesIO()
-        pickle.dump(data, buffer)
+        pickle.dump(als_data, buffer)
         buffer.seek(0)
         self.minio_client.put_object(
-            settings.MINIO_BUCKET, MODEL_KEY, buffer, length=buffer.getbuffer().nbytes
+            settings.MINIO_BUCKET,
+            ALS_MODEL_KEY,
+            buffer,
+            length=buffer.getbuffer().nbytes,
         )
-        logger.info(f"Model saved to MinIO: {MODEL_KEY}")
+        logger.info(f"ALS model saved to MinIO: {ALS_MODEL_KEY}")
 
-    def load_model(self):
+        lightfm_data = {
+            "model": self.lightfm_model,
+            "user_ids": self.user_ids,
+            "movie_ids": self.movie_ids,
+            "user_to_idx": self.user_to_idx,
+            "movie_to_idx": self.movie_to_idx,
+            "idx_to_movie": self.idx_to_movie,
+            "user_item_matrix": self.lightfm_user_item_matrix,
+            "item_features": self.item_features,
+        }
+        buffer = io.BytesIO()
+        pickle.dump(lightfm_data, buffer)
+        buffer.seek(0)
+        self.minio_client.put_object(
+            settings.MINIO_BUCKET,
+            LIGHTFM_MODEL_KEY,
+            buffer,
+            length=buffer.getbuffer().nbytes,
+        )
+        logger.info(f"LightFM model saved to MinIO: {LIGHTFM_MODEL_KEY}")
+
+    def load_models(self):
         try:
-            obj = self.minio_client.get_object(settings.MINIO_BUCKET, MODEL_KEY)
+            obj = self.minio_client.get_object(settings.MINIO_BUCKET, ALS_MODEL_KEY)
             data = pickle.load(obj)
-            self.model = data["model"]
+            self.als_model = data["model"]
             self.user_ids = data["user_ids"]
             self.movie_ids = data["movie_ids"]
             self.user_to_idx = data["user_to_idx"]
             self.movie_to_idx = data["movie_to_idx"]
             self.idx_to_movie = data["idx_to_movie"]
-            self.user_item_matrix = data.get("user_item_matrix")
-            logger.info(f"Model loaded from MinIO: {MODEL_KEY}")
+            self.als_user_item_matrix = data.get("user_item_matrix")
+            logger.info(f"ALS model loaded from MinIO: {ALS_MODEL_KEY}")
         except Exception as e:
-            logger.info(
-                f"No model found in MinIO or error loading: {e}, starting fresh."
-            )
+            logger.info(f"No ALS model found in MinIO or error loading: {e}")
 
-    async def train(self, db: AsyncSession):
+        try:
+            obj = self.minio_client.get_object(settings.MINIO_BUCKET, LIGHTFM_MODEL_KEY)
+            data = pickle.load(obj)
+            self.lightfm_model = data["model"]
+            self.user_ids = data["user_ids"]
+            self.movie_ids = data["movie_ids"]
+            self.user_to_idx = data["user_to_idx"]
+            self.movie_to_idx = data["movie_to_idx"]
+            self.idx_to_movie = data["idx_to_movie"]
+            self.lightfm_user_item_matrix = data.get("user_item_matrix")
+            self.item_features = data.get("item_features")
+            logger.info(f"LightFM model loaded from MinIO: {LIGHTFM_MODEL_KEY}")
+        except Exception as e:
+            logger.info(f"No LightFM model found in MinIO or error loading: {e}")
+
+    async def train(self, db: AsyncIOMotorDatabase):
         logger.info("Starting model training...")
-        stmt = select(WatchHistory.user_id, WatchHistory.movie_id)
-        result = await db.execute(stmt)
-        interactions = result.all()
+        watched_movies = await db["watched_movies"].find().to_list(None)
+        likes = await db["likes"].find().to_list(None)
+        bookmarks = await db["bookmarks"].find().to_list(None)
 
-        if not interactions:
+        if not watched_movies and not likes and not bookmarks:
             logger.warning("No interaction data available for training.")
             return
 
-        self.user_ids = sorted(set(user_id for user_id, _ in interactions))
-        self.movie_ids = sorted(set(movie_id for _, movie_id in interactions))
-        self.user_to_idx = {user_id: idx for idx, user_id in enumerate(self.user_ids)}
-        self.movie_to_idx = {
-            movie_id: idx for idx, movie_id in enumerate(self.movie_ids)
-        }
-        self.idx_to_movie = {
-            idx: movie_id for movie_id, idx in self.movie_to_idx.items()
-        }
+        interactions = [
+            (str(wm["user_id"]), str(wm["movie_id"]), 1.0 if wm["complete"] else 0.5) for wm in watched_movies
+        ] + [
+            (str(like["user_id"]), str(like["movie_id"]), like["rating"] / 10.0) for like in likes
+        ] + [
+            (str(bm["user_id"]), str(bm["movie_id"]), 0.3) for bm in bookmarks
+        ]
 
-        rows = [self.user_to_idx[user_id] for user_id, _ in interactions]
-        cols = [self.movie_to_idx[movie_id] for _, movie_id in interactions]
-        data = np.ones(len(interactions))
-        self.user_item_matrix = csr_matrix(
-            (data, (rows, cols)), shape=(len(self.user_ids), len(self.movie_ids))
+        self.user_ids = sorted(set(user_id for user_id, _, _ in interactions))
+        self.movie_ids = sorted(set(movie_id for _, movie_id, _ in interactions))
+        self.user_to_idx = {uid: idx for idx, uid in enumerate(self.user_ids)}
+        self.movie_to_idx = {mid: idx for idx, mid in enumerate(self.movie_ids)}
+        self.idx_to_movie = {idx: mid for mid, idx in self.movie_to_idx.items()}
+
+        rows = [self.user_to_idx[uid] for uid, _, _ in interactions]
+        cols = [self.movie_to_idx[mid] for _, mid, _ in interactions]
+        data = [weight for _, _, weight in interactions]
+        self.als_user_item_matrix = csr_matrix((data, (rows, cols)), shape=(len(self.user_ids), len(self.movie_ids)))
+        self.lightfm_user_item_matrix = coo_matrix((data, (rows, cols)), shape=(len(self.user_ids), len(self.movie_ids)))
+
+        # Подготовка item_features в формате CSR
+        movies = await db["movies"].find().to_list(None)
+        genres = [movie["genres"] if isinstance(movie["genres"], list) else [movie["genres"]] for movie in movies]
+        mlb = MultiLabelBinarizer(sparse_output=True)  # Возвращаем разреженную матрицу
+        sparse_features = mlb.fit_transform(genres)
+        self.item_features = sparse_features.tocsr()  # Преобразуем в CSR
+
+        # Проверка соответствия размеров
+        if self.item_features.shape[0] != len(self.movie_ids):
+            logger.warning("Mismatch between item_features and movie_ids. Adjusting item_features...")
+            # Если нужно, можно дополнить или обрезать item_features до нужного размера
+            self.item_features = self.item_features[:len(self.movie_ids), :]
+
+        self.als_model.fit(self.als_user_item_matrix)
+        self.lightfm_model.fit(self.lightfm_user_item_matrix, item_features=self.item_features, epochs=10)
+        self.save_models()
+        logger.info("Model training completed for ALS and LightFM.")
+
+    async def get_user_row(
+        self, user_id: str, db: AsyncIOMotorDatabase, model_type: str = "als"
+    ) -> csr_matrix:
+        watched = (
+            await db["watched_movies"]
+            .find({"user_id": ObjectId(user_id)})
+            .to_list(None)
+        )
+        likes = await db["likes"].find({"user_id": ObjectId(user_id)}).to_list(None)
+        bookmarks = (
+            await db["bookmarks"].find({"user_id": ObjectId(user_id)}).to_list(None)
         )
 
-        self.model.fit(self.user_item_matrix)
-        self.save_model()
-        logger.info("Model training completed.")
-
-    async def get_user_row(self, user_id: str, db: AsyncSession) -> csr_matrix:
-        """Получаем строку взаимодействий для конкретного пользователя."""
-        stmt = select(WatchHistory.movie_id).where(WatchHistory.user_id == user_id)
-        result = await db.execute(stmt)
-        watched_movies = result.scalars().all()
-
-        if not watched_movies:
-            # Если у пользователя нет просмотров, возвращаем пустую строку
-            return csr_matrix((1, len(self.movie_ids)), dtype=np.float32)
+        movie_weights = {}
+        for wm in watched:
+            movie_id = str(wm["movie_id"])
+            movie_weights[movie_id] = 1.0 if wm["complete"] else 0.5
+        for like in likes:
+            movie_id = str(like["movie_id"])
+            movie_weights[movie_id] = like["rating"] / 10.0
+        for bm in bookmarks:
+            movie_id = str(bm["movie_id"])
+            if movie_id not in movie_weights:
+                movie_weights[movie_id] = 0.3
 
         cols = [
-            self.movie_to_idx[movie_id]
-            for movie_id in watched_movies
-            if movie_id in self.movie_to_idx
+            self.movie_to_idx[mid] for mid in movie_weights if mid in self.movie_to_idx
         ]
-        data = np.ones(len(cols))
-        rows = np.zeros(len(cols))  # Одна строка (индекс 0)
-        return csr_matrix((data, (rows, cols)), shape=(1, len(self.movie_ids)))
+        data = [movie_weights[mid] for mid in movie_weights if mid in self.movie_to_idx]
+        rows = np.zeros(len(cols))
+        matrix = csr_matrix if model_type == "als" else coo_matrix
+        return matrix((data, (rows, cols)), shape=(1, len(self.movie_ids)))
 
     async def get_recommendations(
-        self, user_id: str, db: AsyncSession, n: int = 3
-    ) -> list[str]:
-        # Если модель не обучена, возвращаем популярные фильмы
-        if self.user_item_matrix is None or not self.user_ids:
-            stmt = (
-                select(WatchHistory.movie_id)
-                .group_by(WatchHistory.movie_id)
-                .order_by(func.count().desc())
-                .limit(n)
+        self,
+        user_id: str,
+        db: AsyncIOMotorDatabase,
+        n: int = 3,
+        model_type: str = "als",
+    ) -> dict:
+        if model_type not in ["als", "lightfm"]:
+            model_type = "als"
+
+        user_item_matrix = (
+            self.als_user_item_matrix
+            if model_type == "als"
+            else self.lightfm_user_item_matrix
+        )
+        model = self.als_model if model_type == "als" else self.lightfm_model
+
+        if user_item_matrix is None or not self.user_ids:
+            popular = (
+                await db["movies"]
+                .aggregate([{"$sort": {"rating": -1}}, {"$limit": n}])
+                .to_list(n)
             )
-            popular = (await db.execute(stmt)).scalars().all()
+            recommendations = (
+                [str(movie["_id"]) for movie in popular] if popular else []
+            )
+            session_id = str(uuid.uuid4())
             logger.info(
-                f"Returning popular movies for user {user_id} (no model or data)"
+                f"Returning popular movies for user {user_id} (no {model_type} model): {recommendations}, session {session_id}"
             )
-            return list(popular) if popular else ["movie1", "movie2", "movie3"]
+            return {
+                "source": "popular",
+                "recommendations": recommendations,
+                "session_id": session_id,
+            }
 
-        # Получаем строку взаимодействий пользователя
-        user_row = await self.get_user_row(user_id, db)
+        user_row = await self.get_user_row(user_id, db, model_type)
 
-        # Если пользователь новый, возвращаем популярные фильмы
         if user_id not in self.user_to_idx:
-            stmt = (
-                select(WatchHistory.movie_id)
-                .group_by(WatchHistory.movie_id)
-                .order_by(func.count().desc())
-                .limit(n)
+            popular = (
+                await db["movies"]
+                .aggregate([{"$sort": {"rating": -1}}, {"$limit": n}])
+                .to_list(n)
             )
-            popular = (await db.execute(stmt)).scalars().all()
-            logger.info(f"Returning popular movies for new user {user_id}")
-            return list(popular) if popular else ["movie1", "movie2", "movie3"]
+            recommendations = (
+                [str(movie["_id"]) for movie in popular] if popular else []
+            )
+            session_id = str(uuid.uuid4())
+            logger.info(
+                f"Returning popular movies for new user {user_id} ({model_type}): {recommendations}, session {session_id}"
+            )
+            return {
+                "source": "popular",
+                "recommendations": recommendations,
+                "session_id": session_id,
+            }
 
         user_idx = self.user_to_idx[user_id]
-        stmt = select(WatchHistory.movie_id).where(WatchHistory.user_id == user_id)
-        watched = set((await db.execute(stmt)).scalars().all())
-
-        # Передаём строку пользователя вместо полной матрицы
-        recommended_ids, _ = self.model.recommend(
-            user_idx, user_row, N=n + len(watched)
+        watched = set(
+            str(wm["movie_id"])
+            for wm in await db["watched_movies"]
+            .find({"user_id": ObjectId(user_id)})
+            .to_list(None)
         )
-        recommendations = [
-            self.idx_to_movie[idx]
-            for idx in recommended_ids
-            if idx in self.idx_to_movie and self.idx_to_movie[idx] not in watched
-        ][:n]
-        logger.info(f"Generated recommendations for user {user_id}: {recommendations}")
-        return recommendations if recommendations else ["movie1", "movie2", "movie3"]
+
+        if model_type == "als":
+            recommended_ids, _ = model.recommend(user_idx, user_row, N=n + len(watched))
+            recommendations = [
+                self.idx_to_movie[idx]
+                for idx in recommended_ids
+                if idx in self.idx_to_movie and self.idx_to_movie[idx] not in watched
+            ][:n]
+        else:
+            scores = model.predict(
+                user_idx,
+                np.arange(len(self.movie_ids)),
+                item_features=self.item_features,
+            )
+            top_items = np.argsort(-scores)[: n + len(watched)]
+            recommendations = [
+                self.idx_to_movie[idx]
+                for idx in top_items
+                if self.idx_to_movie[idx] not in watched
+            ][:n]
+
+        if not recommendations:
+            popular = (
+                await db["movies"]
+                .aggregate([{"$sort": {"rating": -1}}, {"$limit": n}])
+                .to_list(n)
+            )
+            recommendations = (
+                [str(movie["_id"]) for movie in popular] if popular else []
+            )
+
+        session_id = str(uuid.uuid4())
+        logger.info(
+            f"Generated {model_type} recommendations for user {user_id}: {recommendations}, session {session_id}"
+        )
+        return {
+            "source": model_type,
+            "recommendations": recommendations,
+            "session_id": session_id,
+        }
 
 
 recommendation_model = RecommendationModel()
