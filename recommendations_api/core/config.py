@@ -16,10 +16,10 @@ class Settings(BaseSettings):
 
     # Настройки базы данных
     MONGO_URL: str = "mongodb://mongodb:27017"
+    DATABASE_NAME: str = "cinema"
     url_movies_search: str = "http://movie_api:8000/api/v1/films/"
     url_movies_id: str = "http://movie_api:8000/api/v1/films/{film_uuid}"
-    DATABASE_NAME: str = "cinema"
-
+    RECOMMENDATIONS_LIMITS:int =  3
     # Настройки Redis
     REDIS_URL: str = "redis://redis:6379/0"
 
@@ -28,6 +28,8 @@ class Settings(BaseSettings):
     MINIO_ACCESS_KEY: str = "minioadmin"
     MINIO_SECRET_KEY: str = "miniopassword"
     MINIO_BUCKET: str = "models"
+
+
 
     # Настройки JWT
     # to get a string like this run:

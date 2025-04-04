@@ -224,7 +224,7 @@ class RecommendationModel:
         self,
         user_id: str,
         db: AsyncIOMotorDatabase,
-        n: int = 3,
+        n: int = settings.RECOMMENDATIONS_LIMITS,
         model_type: str = "als",
     ) -> dict:
         if model_type not in ["als", "lightfm"]:
