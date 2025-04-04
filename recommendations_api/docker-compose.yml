@@ -1,0 +1,100 @@
+# recommendation_service/docker-compose.yml
+
+services:
+
+  recommend:
+    build: .
+    # container_name: recommendation_api
+    restart: always
+    depends_on:
+      - redis
+      - mongodb
+      - minio
+    environment:
+      PYTHONPATH: /app
+      REDIS_URL: redis://redis:6379/0
+      MINIO_ENDPOINT: minio:9000
+      MINIO_ACCESS_KEY: minioadmin
+      MINIO_SECRET_KEY: miniopassword
+      MINIO_BUCKET: models
+      OPENBLAS_NUM_THREADS: 1
+    ports:
+      - "8084:8084"
+    expose:
+      - "8084"
+    command: >
+      sh -c "uvicorn main:app --host 0.0.0.0 --port 8084 --reload"
+
+  rq_worker:
+    build: .
+    command: rq worker --url redis://redis:6379/0
+    depends_on:
+      - redis
+      - minio
+    environment:
+      - REDIS_URL=redis://redis:6379/0
+      - MINIO_ENDPOINT=minio:9000
+      - MINIO_ACCESS_KEY=minioadmin
+      - MINIO_SECRET_KEY=miniopassword
+      - MINIO_BUCKET=models
+      - OPENBLAS_NUM_THREADS=1
+
+  rq_scheduler:
+    build: .
+    command: python ml/scheduler.py
+    depends_on:
+      - redis
+      - minio
+    environment:
+      - PYTHONPATH=/app
+      - REDIS_URL=redis://redis:6379/0
+      - MINIO_ENDPOINT=minio:9000
+      - MINIO_ACCESS_KEY=minioadmin
+      - MINIO_SECRET_KEY=miniopassword
+      - MINIO_BUCKET=models
+      - OPENBLAS_NUM_THREADS=1
+    
+  metrics:
+    build: .
+    command: python ml/evaluate_metrics.py
+    depends_on:
+      - mongodb
+    environment:
+      - PYTHONPATH=/app      
+
+  # redis-recommend:
+  #   image: redis:latest
+  #   container_name: redis
+  #   restart: always
+  #   ports:
+  #     - "6379:6379"
+  #   volumes:
+  #     - redis_data:/data
+
+  minio:
+    image: minio/minio
+    container_name: minio
+    restart: always
+    ports:
+      - "9000:9000"
+      - "9001:9001"
+    environment:
+      - MINIO_ROOT_USER=minioadmin
+      - MINIO_ROOT_PASSWORD=miniopassword
+    command: server /data --console-address ":9001"
+    volumes:
+      - minio_data:/data
+
+  # mongodb:
+  #   image: mongo
+  #   ports:
+  #     - 27017:27017
+  #   volumes:
+  #     - mongo_data:/data/db
+  #   restart: unless-stopped
+
+
+volumes:
+  redis_data:
+  minio_data:
+  mongo_data:

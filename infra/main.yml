@@ -31,11 +31,15 @@ services:
       interval: 10s
       timeout: 5s
       retries: 5
+    ports:
+      - "6379:6379"
     expose:
       - "6379"
     depends_on:
       db:
         condition: service_healthy
+    volumes:
+      - redis_data:/data
 
 # ---- сервис авторизации ----
   auth:
@@ -143,4 +147,5 @@ services:
 volumes:
   postgres_data:
   elasticsearch_data:
+  redis_data:
   static:
