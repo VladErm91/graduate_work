@@ -5,6 +5,7 @@ from typing_extensions import Annotated
 
 from core.config import db
 from core.jwt import security_jwt
+from core.utils import hash_uid
 from models.genres import Genre
 
 router = APIRouter(tags=["genres"])
@@ -32,7 +33,7 @@ async def add_favorite_user_genres(
     """
 
     # Получаем ID пользователя
-    user_id = str(user["id"])
+    user_id = hash_uid(user["id"])
 
     # Получаем текущие любимые жанры пользователя
     user_genres = await db.favourite_genres.find_one({"user_id": user_id})

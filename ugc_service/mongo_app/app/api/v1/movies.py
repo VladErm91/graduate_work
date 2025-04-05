@@ -3,7 +3,7 @@ from typing import List
 
 from core.config import db
 from core.jwt import security_jwt
-from core.utils import convert_objectid
+from core.utils import convert_objectid, hash_to_str
 from fastapi import APIRouter, Depends
 from schemas.schemas import Movie, MovieCreate, WatchedMovie, WatchedMovieCreate
 from typing_extensions import Annotated
@@ -62,7 +62,7 @@ async def create_movie_timestamp(
         The created Movie object from the database.
     """
     watched_movies_dict = movie_timestamp.model_dump()
-    watched_movies_dict["user_id"] = str(user["id"])
+    watched_movies_dict["user_id"] = hash_to_str(user["id"])
     logger.info(f"watched_movies_dict: {watched_movies_dict}")
     result = await db.watched_movies.insert_one(watched_movies_dict)
     created_watched_movies = convert_objectid(
@@ -74,7 +74,6 @@ async def create_movie_timestamp(
 @router.get("/users/{user_id}/movie_timestamps/", response_model=List[WatchedMovie])
 async def get_watched_movies(
     user: Annotated[dict, Depends(security_jwt)],
-    user_id: str,
 ):
     """
     Get all watched_movies for a given user as list.
@@ -87,6 +86,6 @@ async def get_watched_movies(
         A list of WatchedMovies objects from the database that match the given user_id.
     """
     watchedMovies = convert_objectid(
-        await db.watched_movies.find({"user_id": user_id}).to_list(100)
+        await db.watched_movies.find({"user_id": hash_to_str(user["id"])}).to_list(100)
     )
     return watchedMovies

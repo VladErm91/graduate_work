@@ -1,17 +1,29 @@
 from datetime import datetime
-from typing import Annotated, Optional
-from uuid import UUID
+from typing import Annotated, Optional, List
 
 from bson import ObjectId
 from models.models import PyObjectId
 from pydantic import BaseModel, Field
 
+class UserBase(BaseModel):
+    username: str
+
+class UserCreate(UserBase):
+    pass
+
+class User(UserBase):
+    id: Optional[PyObjectId] = Field(alias="_id", default=None)
+
+    class Config:
+        from_attributes = True
+        json_encoders = {ObjectId: str}
+        populate_by_name = True
 
 class MovieBase(BaseModel):
     title: str
     description: Optional[str] = None
     rating: float
-    genres: str
+    genres: List[str] = None
 
 
 class MovieCreate(MovieBase):
@@ -25,9 +37,8 @@ class Movie(MovieBase):
         from_attributes = True
         json_encoders = {ObjectId: str}
 
-
 class LikeBase(BaseModel):
-    user_id: UUID
+    user_id: str
     movie_id: str
     rating: Annotated[
         int, Field(strict=True, gt=0, le=10)
@@ -50,7 +61,7 @@ class Like(LikeBase):
 
 
 class WatchedMovieBase(BaseModel):
-    user_id: UUID
+    user_id: str
     movie_id: str
     watched_at: datetime
     complete:bool
@@ -69,8 +80,8 @@ class WatchedMovie(WatchedMovieBase):
 
 
 class ReviewBase(BaseModel):
-    user_id: UUID
-    movie_id: PyObjectId
+    user_id: str
+    movie_id: str
     content: str
     publication_date: datetime
     additional_data: Optional[dict] = None
@@ -91,8 +102,8 @@ class Review(ReviewBase):
 
 
 class BookmarkBase(BaseModel):
-    user_id: UUID
-    movie_id: PyObjectId
+    user_id: str
+    movie_id: str
 
 
 class BookmarkCreate(BookmarkBase):

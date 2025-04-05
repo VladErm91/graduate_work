@@ -7,10 +7,12 @@ import httpx
 from fastapi import APIRouter, Depends, HTTPException, Query, Request
 from redis.asyncio import Redis
 from typing_extensions import Annotated
+from bson import ObjectId
 
 from core.config import db, settings
 from core.jwt import JWTBearer, security_jwt
 from core.redis import get_redis
+from core.utils import hash_uid
 from ml.recommendation_model import recommendation_model
 
 logging.basicConfig(level=logging.INFO)
@@ -38,7 +40,7 @@ async def get_base_recommendations_for_user(
     if not token:
         raise HTTPException(status_code=403, detail="Authorization token is missing")
 
-    user_id = str(user["id"])
+    user_id = hash_uid(user["id"])
 
     # Получаем любимые жанры пользователя из MongoDB
     user_genres = await db.favourite_genres.find_one(
@@ -108,14 +110,15 @@ async def get_base_recommendations_for_user(
 @router.get("/{user_id}")
 async def get_recommendations(
     user: Annotated[dict, Depends(security_jwt)],
+    user_id: str,
     model: str = Query(None, description="models like als or lightfm"),
     redis: Redis = Depends(get_redis),
 ):
     """
     Возвращает рекомендации для пользователя.
     """
-
-    user_id = str(user["id"])
+    
+    # user_id = hash_uid(user["id"])
     model_type = (
         model if model in ["als", "lightfm"] else random.choice(["als", "lightfm"])
     )
@@ -134,7 +137,7 @@ async def get_recommendations(
     # Сохранение рекомендаций для анализа
     await db["recommendation_logs"].insert_one(
         {
-            "user_id": {"_id": user_id},
+            "user_id": ObjectId(user_id),
             "model_type": model_type,
             "recommendations": result["recommendations"],
             "session_id": result["session_id"],

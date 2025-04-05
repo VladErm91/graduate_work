@@ -1,5 +1,5 @@
 from datetime import datetime
-from typing import Optional
+from typing import Optional, List
 
 from bson import ObjectId
 from pydantic import BaseModel, Field
@@ -28,7 +28,7 @@ class Movie(BaseModel):
     title: str
     description: Optional[str] = None
     rating: float
-    genres: str
+    genres: List[str]
 
     class Config:
         from_attributes = True

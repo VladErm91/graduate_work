@@ -4,7 +4,7 @@ from typing import List
 from bson import ObjectId
 from core.config import db
 from core.jwt import security_jwt
-from core.utils import convert_objectid
+from core.utils import convert_objectid, hash_to_str
 from fastapi import APIRouter, Depends, HTTPException
 from schemas.schemas import Bookmark, BookmarkCreate
 from typing_extensions import Annotated
@@ -30,7 +30,7 @@ async def create_bookmark(
     """
 
     bookmark_dict = bookmark.model_dump()
-    bookmark_dict["user_id"] = user["id"]
+    bookmark_dict["user_id"] = hash_to_str(user["id"])
     logger.info(f"bookmark_dict: {bookmark_dict}")
     result = await db.bookmarks.insert_one(bookmark_dict)
     created_bookmark = convert_objectid(
@@ -55,7 +55,7 @@ async def get_bookmarks(
         A list of Bookmark objects from the database that match the given user_id.
     """
     bookmarks = convert_objectid(
-        await db.bookmarks.find({"user_id": user_id}).to_list(1000)
+        await db.bookmarks.find({"user_id": hash_to_str(user_id)}).to_list(1000)
     )
     return bookmarks
 
@@ -77,7 +77,7 @@ async def delete_bookmark(
         HTTPException: 404 if the bookmark is not found
     """
     bookmark = await db.bookmarks.find_one(
-        {"_id": ObjectId(bookmark_id), "user_id": user["id"]}
+        {"_id": ObjectId(bookmark_id), "user_id": hash_to_str(user["id"])}
     )
     if not bookmark:
         raise HTTPException(status_code=404, detail="Bookmark not found")

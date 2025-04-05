@@ -2,6 +2,7 @@ import random
 
 import pymongo
 from faker import Faker
+from uuid import uuid4
 
 # Настройки подключения к MongoDB
 MONGO_URL = "mongodb://localhost:27017"
@@ -67,7 +68,7 @@ for _ in range(NUM_MOVIES):
     movie = {
         "title": fake.catch_phrase(),
         "description": fake.text(),
-        "genres": random.sample(GENRES, k=random.randint(1, 3)),
+        "genres": list(random.sample(GENRES, k=random.randint(1, 3))),
         "rating": round(random.uniform(1, 10), 1),
     }
     movies.append(movie)
@@ -81,9 +82,10 @@ if movies:
 users = []
 for _ in range(NUM_USERS):
     user = {
+        # '_id': str(uuid4()),
         "username": fake.user_name(),
-        "email": fake.email(),
-        "hashed_password": fake.password(),
+        # "email": fake.email(),
+        # "hashed_password": fake.password(),
     }
     users.append(user)
     if len(users) >= BATCH_SIZE:
