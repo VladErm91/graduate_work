@@ -4,7 +4,6 @@ import random
 from datetime import datetime
 
 import httpx
-from bson import ObjectId
 from fastapi import APIRouter, Depends, HTTPException, Query, Request
 from redis.asyncio import Redis
 from typing_extensions import Annotated
@@ -109,9 +108,12 @@ async def get_base_recommendations_for_user(
 @router.get("/{user_id}")
 async def get_recommendations(
     user: Annotated[dict, Depends(security_jwt)],
-    model: str | None = None,
+    model: str = Query(None, description="models like als or lightfm"),
     redis: Redis = Depends(get_redis),
 ):
+    """
+    Возвращает рекомендации для пользователя.
+    """
 
     user_id = str(user["id"])
     model_type = (
@@ -151,10 +153,13 @@ async def submit_feedback(
     movie_id: str,
     liked: bool,
 ):
+    """
+    Отправляет обратную связь о просмотренном фильме.
+    """
     await db["feedback"].insert_one(
         {
             "session_id": session_id,
-            "movie_id": ObjectId(movie_id),
+            "movie_id": {"_id": movie_id},
             "liked": liked,
             "timestamp": datetime.utcnow(),
         }

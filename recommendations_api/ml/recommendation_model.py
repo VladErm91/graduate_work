@@ -6,7 +6,6 @@ import uuid
 
 import implicit
 import numpy as np
-from bson import ObjectId
 from lightfm import LightFM
 from minio import Minio
 from motor.motor_asyncio import AsyncIOMotorDatabase
@@ -191,13 +190,11 @@ class RecommendationModel:
         self, user_id: str, db: AsyncIOMotorDatabase, model_type: str = "als"
     ) -> csr_matrix:
         watched = (
-            await db["watched_movies"]
-            .find({"user_id": ObjectId(user_id)})
-            .to_list(None)
+            await db["watched_movies"].find({"user_id": {"_id": user_id}}).to_list(None)
         )
-        likes = await db["likes"].find({"user_id": ObjectId(user_id)}).to_list(None)
+        likes = await db["likes"].find({"user_id": {"_id": user_id}}).to_list(None)
         bookmarks = (
-            await db["bookmarks"].find({"user_id": ObjectId(user_id)}).to_list(None)
+            await db["bookmarks"].find({"user_id": {"_id": user_id}}).to_list(None)
         )
 
         movie_weights = {}
@@ -281,7 +278,7 @@ class RecommendationModel:
         watched = set(
             str(wm["movie_id"])
             for wm in await db["watched_movies"]
-            .find({"user_id": ObjectId(user_id)})
+            .find({"user_id": {"_id": user_id}})
             .to_list(None)
         )
 

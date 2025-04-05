@@ -71,7 +71,7 @@ async def create_movie_timestamp(
     return created_watched_movies
 
 
-@router.get("/users/{user_id}/movie_timestamp/", response_model=List[WatchedMovie])
+@router.get("/users/{user_id}/movie_timestamps/", response_model=List[WatchedMovie])
 async def get_watched_movies(
     user: Annotated[dict, Depends(security_jwt)],
     user_id: str,
