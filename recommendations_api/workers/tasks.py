@@ -55,7 +55,7 @@ def update_all_recommendations():
     asyncio.run(update_all_recommendations_async())
 
 
-async def train_model_async():
+async def train_model_async(partial: bool = False, train_als: bool = False):
     db = await get_mongo_db()
     redis = await get_redis()
     # Получаем время последнего обучения из Redis
@@ -71,7 +71,7 @@ async def train_model_async():
         {"timestamp": {"$gt": last_train_time}} if last_train_time else {}
     ).to_list(None)
 
-    if new_interactions:
+    if partial and new_interactions:
         await recommendation_model.partial_train(db, last_train_time)
     else:
         await recommendation_model.train(db)  # Полное обучение, если нет новых данных
@@ -80,10 +80,10 @@ async def train_model_async():
     await redis.set("last_train_time", datetime.utcnow().isoformat())
 
 
-def train_model():
+def train_model(partial: bool = False, train_als: bool = False):
     queue = get_queue()
-    queue.enqueue(train_model_async, retry=Retry(max=3, interval=60))  # Ставим задачу в очередь
-    logger.info("Enqueued model training task")
+    queue.enqueue(train_model_async, partial=partial, train_als=train_als, retry=Retry(max=3, interval=60))
+    logger.info(f"Enqueued model training task (partial={partial}, train_als={train_als})")
 
 
 async def schedule_training():
