@@ -152,6 +152,7 @@ class RecommendationModel:
         self.movie_to_idx = {mid: idx for idx, mid in enumerate(self.movie_ids)}
         self.idx_to_movie = {idx: mid for mid, idx in self.movie_to_idx.items()}
 
+        # Подготовка user_item_matrix в формате CSR
         rows = [self.user_to_idx[uid] for uid, _, _ in interactions]
         cols = [self.movie_to_idx[mid] for _, mid, _ in interactions]
         data = [weight for _, _, weight in interactions]
@@ -312,6 +313,7 @@ class RecommendationModel:
             recommendations = (
                 [str(movie["_id"]) for movie in popular] if popular else []
             )
+
 
         session_id = str(uuid.uuid4())
         logger.info(

@@ -208,3 +208,5 @@ docker-compose exec fastapi python scripts/generate_mongo_data.py
 docker-compose exec fastapi python -c "from workers.tasks import train_model; train_model()"
 docker-compose exec fastapi python ml/evaluate_metrics.py
 ```
+
+docker exec graduate_work-recommend-1 python -c "from workers.tasks import update_all_recommendations; update_all_recommendations()"

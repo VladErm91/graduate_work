@@ -26,6 +26,11 @@ async def main():
         train_model,
         id="train_model",
     )
+    # scheduler.cron( - для дебага
+    #     "*/2 * * * *",  # Каждые 5 минут
+    #     update_all_recommendations,
+    #     id="update_all_recommendations",
+    # )
     scheduler.cron(
         "30 0 * * *",  # Каждый день в 00:30
         update_all_recommendations,

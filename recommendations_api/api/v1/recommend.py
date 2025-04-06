@@ -13,6 +13,7 @@ from core.config import db, settings
 from core.jwt import JWTBearer, security_jwt
 from core.redis import get_redis
 from core.utils import hash_uid
+from schemas.schemas import RecommendationResponse
 from ml.recommendation_model import recommendation_model
 
 logging.basicConfig(level=logging.INFO)
@@ -29,7 +30,7 @@ router = APIRouter(tags=["recommend"])
 async def get_base_recommendations_for_user(
     request: Request,
     user: Annotated[dict, Depends(security_jwt)],  # Данные пользователя из JWT
-    limit: int = Query(12, description="Number of movies to return", ge=1, le=50),
+    limit: int = Query(6, description="Number of movies to return", ge=1, le=50),
 ):
     """
     Получает топ фильмов по любимым жанрам пользователя из MongoDB и делает запрос в эндпоинт movie_api.
@@ -104,10 +105,12 @@ async def get_base_recommendations_for_user(
                 )
             all_movies = response.json()
 
-        return {"movies": all_movies}
+            movie_ids = [movie["uuid"] for movie in all_movies]
+
+        return {"movies": movie_ids}
 
 
-@router.get("/{user_id}")
+@router.get("/{user_id}", response_model=RecommendationResponse)
 async def get_recommendations(
     user: Annotated[dict, Depends(security_jwt)],
     user_id: str,

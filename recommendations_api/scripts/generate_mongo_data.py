@@ -47,20 +47,20 @@ GENRES = [
 NUM_USERS = 100
 NUM_MOVIES = 200
 NUM_LIKES = 500  # Увеличили для лучшей плотности данных
-NUM_REVIEWS = 200
-NUM_BOOKMARKS = 300
-NUM_WATCHEDFILMS = 1000
+NUM_REVIEWS = 100
+NUM_BOOKMARKS = 500
+NUM_WATCHEDFILMS = 2000
 
 # Размер пачки для вставки
 BATCH_SIZE = 100
 
 # Очистка базы (опционально)
-db.movies.drop()
-db.users.drop()
-db.likes.drop()
-db.reviews.drop()
-db.bookmarks.drop()
-db.watched_movies.drop()
+# db.movies.drop()
+# db.users.drop()
+# db.likes.drop()
+# db.reviews.drop()
+# db.bookmarks.drop()
+# db.watched_movies.drop()
 
 # Генерация фильмов
 movies = []
@@ -94,7 +94,7 @@ for _ in range(NUM_USERS):
 if users:
     db.users.insert_many(users)
 
-# Извлекаем ID один раз
+# # Извлекаем ID один раз
 user_ids = list(db.users.find().distinct("_id"))
 movie_ids = list(db.movies.find().distinct("_id"))
 
