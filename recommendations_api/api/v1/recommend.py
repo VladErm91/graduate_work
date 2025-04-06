@@ -1,7 +1,9 @@
+# recommendations_api/api/v1/recommend.py
+
 import json
 import logging
 import random
-from datetime import datetime
+from datetime import datetime, timezone
 
 import httpx
 from fastapi import APIRouter, Depends, HTTPException, Query, Request
@@ -109,7 +111,7 @@ async def get_base_recommendations_for_user(
 
 @router.get("/{user_id}")
 async def get_recommendations(
-    user: Annotated[dict, Depends(security_jwt)],
+    # user: Annotated[dict, Depends(security_jwt)],
     user_id: str,
     model: str = Query(None, description="models like als or lightfm"),
     redis: Redis = Depends(get_redis),
@@ -117,7 +119,7 @@ async def get_recommendations(
     """
     Возвращает рекомендации для пользователя.
     """
-    
+
     # user_id = hash_uid(user["id"])
     model_type = (
         model if model in ["als", "lightfm"] else random.choice(["als", "lightfm"])
@@ -141,7 +143,7 @@ async def get_recommendations(
             "model_type": model_type,
             "recommendations": result["recommendations"],
             "session_id": result["session_id"],
-            "timestamp": datetime.utcnow(),
+            "timestamp": datetime.now(timezone.utc),
         }
     )
 
@@ -151,7 +153,7 @@ async def get_recommendations(
 
 @router.post("/feedback/{session_id}")
 async def submit_feedback(
-    user: Annotated[dict, Depends(security_jwt)],
+    # user: Annotated[dict, Depends(security_jwt)],
     session_id: str,
     movie_id: str,
     liked: bool,
@@ -164,7 +166,7 @@ async def submit_feedback(
             "session_id": session_id,
             "movie_id": {"_id": movie_id},
             "liked": liked,
-            "timestamp": datetime.utcnow(),
+            "timestamp": datetime.now(timezone.utc),
         }
     )
     logger.info(

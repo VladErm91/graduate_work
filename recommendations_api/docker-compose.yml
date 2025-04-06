@@ -31,6 +31,7 @@ services:
     depends_on:
       - redis
       - minio
+    restart: unless-stopped
     environment:
       - REDIS_URL=redis://redis:6379/0
       - MINIO_ENDPOINT=minio:9000

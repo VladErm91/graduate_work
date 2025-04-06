@@ -1,13 +1,15 @@
 # recommendation_service/tasks.py
 import asyncio
+from datetime import datetime
 import json
 import logging
 
-from rq import Queue
+from rq import Queue, Retry
 
 from core.config import db
 from core.redis import get_redis, get_sync_redis
 from ml.recommendation_model import recommendation_model
+from core.mongo import get_mongo_db
 
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
@@ -54,12 +56,33 @@ def update_all_recommendations():
 
 
 async def train_model_async():
-    await recommendation_model.train(db)
+    db = await get_mongo_db()
+    redis = await get_redis()
+    # Получаем время последнего обучения из Redis
+    last_train_time_str = await redis.get("last_train_time")
+    last_train_time = datetime.fromisoformat(last_train_time_str) if last_train_time_str else None
+
+    # Проверяем наличие новых взаимодействий
+    new_interactions = await db["watched_movies"].find(
+        {"timestamp": {"$gt": last_train_time}} if last_train_time else {}
+    ).to_list(None) or await db["likes"].find(
+        {"timestamp": {"$gt": last_train_time}} if last_train_time else {}
+    ).to_list(None) or await db["bookmarks"].find(
+        {"timestamp": {"$gt": last_train_time}} if last_train_time else {}
+    ).to_list(None)
+
+    if new_interactions:
+        await recommendation_model.partial_train(db, last_train_time)
+    else:
+        await recommendation_model.train(db)  # Полное обучение, если нет новых данных
+
+    # Обновляем время последнего обучения
+    await redis.set("last_train_time", datetime.utcnow().isoformat())
 
 
 def train_model():
     queue = get_queue()
-    queue.enqueue(train_model_async)  # Ставим задачу в очередь
+    queue.enqueue(train_model_async, retry=Retry(max=3, interval=60))  # Ставим задачу в очередь
     logger.info("Enqueued model training task")
 
 
