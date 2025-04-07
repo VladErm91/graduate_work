@@ -1,8 +1,8 @@
 # recommendation_service/tasks.py
 import asyncio
-from datetime import datetime
 import json
 import logging
+from datetime import datetime
 
 from rq import Queue, Retry
 
@@ -58,16 +58,22 @@ async def train_model_async(partial: bool = False, train_als: bool = False):
     redis = await get_redis()
     # Получаем время последнего обучения из Redis
     last_train_time_str = await redis.get("last_train_time")
-    last_train_time = datetime.fromisoformat(last_train_time_str) if last_train_time_str else None
+    last_train_time = (
+        datetime.fromisoformat(last_train_time_str) if last_train_time_str else None
+    )
 
     # Проверяем наличие новых взаимодействий
-    new_interactions = await db["watched_movies"].find(
-        {"timestamp": {"$gt": last_train_time}} if last_train_time else {}
-    ).to_list(None) or await db["likes"].find(
-        {"timestamp": {"$gt": last_train_time}} if last_train_time else {}
-    ).to_list(None) or await db["bookmarks"].find(
-        {"timestamp": {"$gt": last_train_time}} if last_train_time else {}
-    ).to_list(None)
+    new_interactions = (
+        await db["watched_movies"]
+        .find({"timestamp": {"$gt": last_train_time}} if last_train_time else {})
+        .to_list(None)
+        or await db["likes"]
+        .find({"timestamp": {"$gt": last_train_time}} if last_train_time else {})
+        .to_list(None)
+        or await db["bookmarks"]
+        .find({"timestamp": {"$gt": last_train_time}} if last_train_time else {})
+        .to_list(None)
+    )
 
     if partial and new_interactions:
         await recommendation_model.partial_train(db, last_train_time)
@@ -80,8 +86,15 @@ async def train_model_async(partial: bool = False, train_als: bool = False):
 
 def train_model(partial: bool = False, train_als: bool = False):
     queue = get_queue()
-    queue.enqueue(train_model_async, partial=partial, train_als=train_als, retry=Retry(max=3, interval=60))
-    logger.info(f"Enqueued model training task (partial={partial}, train_als={train_als})")
+    queue.enqueue(
+        train_model_async,
+        partial=partial,
+        train_als=train_als,
+        retry=Retry(max=3, interval=60),
+    )
+    logger.info(
+        f"Enqueued model training task (partial={partial}, train_als={train_als})"
+    )
 
 
 async def schedule_training():

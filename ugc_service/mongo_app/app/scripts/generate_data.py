@@ -58,10 +58,9 @@ BATCH_SIZE = 100
 # movies = []
 # for _ in range(NUM_MOVIES):
 #     movie = {
-#         "title": fake.catch_phrase(),
-#         "description": fake.text(),
 #         "genres": random.choice(GENRES),
 #         "rating": round(random.uniform(1, 10), 1),
+#         "publication_date": fake.date_time(),
 #     }
 #     movies.append(movie)
 #     if len(movies) >= BATCH_SIZE:
@@ -91,8 +90,8 @@ BATCH_SIZE = 100
 likes = []
 for _ in range(NUM_LIKES):
     like = {
-        "user_id": ObjectId(random.choice(db.users.find().distinct("_id"))),
-        "movie_id": ObjectId(random.choice(db.movies.find().distinct("_id"))),
+        "user_id": random.choice(db.users.find().distinct("_id")),
+        "movie_id": random.choice(db.movies.find().distinct("_id")),
         "rating": random.randint(0, 10),
     }
     likes.append(like)
@@ -106,8 +105,8 @@ if likes:
 reviews = []
 for _ in range(NUM_REVIEWS):
     review = {
-        "user_id": ObjectId(random.choice(db.users.find().distinct("_id"))),
-        "movie_id": ObjectId(random.choice(db.movies.find().distinct("_id"))),
+        "user_id": random.choice(db.users.find().distinct("_id")),
+        "movie_id": random.choice(db.movies.find().distinct("_id")),
         "content": fake.text(),
         "publication_date": fake.date_time_this_decade(),
         "additional_data": {"key": fake.word()},
@@ -125,8 +124,8 @@ if reviews:
 bookmarks = []
 for _ in range(NUM_BOOKMARKS):
     bookmark = {
-        "user_id": ObjectId(random.choice(db.users.find().distinct("_id"))),
-        "movie_id": ObjectId(random.choice(db.movies.find().distinct("_id"))),
+        "user_id": random.choice(db.users.find().distinct("_id")),
+        "movie_id": random.choice(db.movies.find().distinct("_id")),
     }
     bookmarks.append(bookmark)
     if len(bookmarks) >= BATCH_SIZE:
@@ -139,10 +138,10 @@ if bookmarks:
 watched_films = []
 for _ in range(NUM_WATCHEDFILMS):
     watched_film = {
-        "user_id": ObjectId(random.choice(db.users.find().distinct("_id"))),
-        "movie_id": ObjectId(random.choice(db.movies.find().distinct("_id"))),
+        "user_id": random.choice(db.users.find().distinct("_id")),
+        "movie_id": random.choice(db.movies.find().distinct("_id")),
         "watched_at": fake.date_time_this_decade(),
-        "complete": random.choice([True, False])
+        "complete": random.choice([True, False]),
     }
     watched_films.append(watched_film)
     if len(watched_films) >= BATCH_SIZE:

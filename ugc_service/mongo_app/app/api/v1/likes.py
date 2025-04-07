@@ -4,7 +4,7 @@ from typing import List
 from bson import ObjectId
 from core.config import db
 from core.jwt import security_jwt
-from core.utils import convert_objectid, hash_to_str
+from core.utils import convert_objectid
 from fastapi import APIRouter, Depends, HTTPException
 from schemas.schemas import Like, LikeCreate
 from typing_extensions import Annotated
@@ -30,7 +30,7 @@ async def create_like(
         The created Like object from the database.
     """
     like_dict = like.model_dump()
-    like_dict["user_id"] = hash_to_str(user["id"])
+    like_dict["user_id"] = user["id"]
     logger.info(f"like_dict: {like_dict}")
     result = await db.likes.insert_one(like_dict)
     created_like = convert_objectid(
@@ -73,7 +73,7 @@ async def get_average_rating(
     Returns:
         The average rating of the movie.
     """
-    likes = await db.likes.find({"movie_id": ObjectId(movie_id)}).to_list(1000)
+    likes = await db.likes.find({"movie_id": movie_id}).to_list(1000)
     if not likes:
         return 0.0
     total_rating = sum(like.rating for like in likes)
@@ -99,7 +99,7 @@ async def delete_like(
     Raises:
         HTTPException: 404 if the like is not found.
     """
-    like = await db.likes.find_one({"_id": ObjectId(like_id), "user_id": hash_to_str(user["id"])})
+    like = await db.likes.find_one({"_id": ObjectId(like_id), "user_id": user["id"]})
     if not like:
         raise HTTPException(status_code=404, detail="Like not found")
     await db.likes.delete_one({"_id": ObjectId(like_id)})

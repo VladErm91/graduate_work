@@ -32,10 +32,11 @@ async def migrate_movies():
 
             sql_query = text(
                 """
-                SELECT f.id, f.title, f.description, f.rating, g.name AS genre
+                SELECT f.id, f.rating, f.creation_date, array_agg(g.name) AS genres
                 FROM content.film_work f
                 JOIN content.genre_film_work gf ON gf.film_work_id = f.id
-                JOIN content.genre g ON g.id = gf.genre_id;
+                JOIN content.genre g ON g.id = gf.genre_id
+                GROUP BY f.id, f.rating, f.creation_date;
             """
             )
 
@@ -43,11 +44,10 @@ async def migrate_movies():
 
             movies_to_add = [
                 {
-                    "movie_id": str(row[0]),
-                    "title": row[1],
-                    "description": row[2],
-                    "rating": row[3],
-                    "genres": row[4],
+                    "id": str(row[0]),  # UUID → str
+                    "rating": row[1],
+                    "creation_date": row[2],
+                    "genres": row[3],  # уже список строк (array_agg)
                 }
                 for row in result
             ]
@@ -55,13 +55,13 @@ async def migrate_movies():
             logging.info(f"Из PostgreSQL получено {len(movies_to_add)} фильмов.")
 
             existing_movie_ids = await movies_collection.distinct(
-                "movie_id"
+                "id"
             )  # правильный вызов distinct
             existing_movie_ids = list(set(existing_movie_ids))
             new_movies = [
                 movie
                 for movie in movies_to_add
-                if movie["movie_id"] not in existing_movie_ids
+                if movie["id"] not in existing_movie_ids
             ]
 
             if not new_movies:

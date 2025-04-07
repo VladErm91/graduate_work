@@ -1,5 +1,6 @@
 from datetime import datetime
-from typing import Optional, List
+from typing import List, Optional
+from uuid import UUID
 
 from bson import ObjectId
 from pydantic import BaseModel, Field
@@ -24,25 +25,23 @@ class PyObjectId(ObjectId):
 
 
 class Movie(BaseModel):
-    id: Optional[PyObjectId] = Field(alias="_id")
-    title: str
-    description: Optional[str] = None
+    id: Optional[UUID] = Field(alias="_id")
     rating: float
     genres: List[str]
+    creation_date: datetime
 
     class Config:
         from_attributes = True
         populate_by_name = True
-        json_encoders = {ObjectId: str}
+        json_encoders = {UUID: str}
 
 
 class WatchedMovie(BaseModel):
     id: Optional[PyObjectId] = Field(alias="_id")
-    user_id: PyObjectId
-    movie_id: PyObjectId
+    user_id: str
+    movie_id: str
     watched_at: datetime
     complete: bool
-
 
     class Config:
         from_attributes = True
@@ -52,8 +51,8 @@ class WatchedMovie(BaseModel):
 
 class Like(BaseModel):
     id: Optional[PyObjectId] = Field(alias="_id")
-    user_id: PyObjectId
-    movie_id: PyObjectId
+    user_id: str
+    movie_id: str
     rating: Optional[int] = 1  # Оценка от 0 до 10
 
     class Config:
@@ -64,8 +63,8 @@ class Like(BaseModel):
 
 class Review(BaseModel):
     id: Optional[PyObjectId] = Field(alias="_id")
-    user_id: PyObjectId
-    movie_id: PyObjectId
+    user_id: str
+    movie_id: str
     content: str
     publication_date: datetime
     additional_data: Optional[dict] = None
@@ -80,8 +79,8 @@ class Review(BaseModel):
 
 class Bookmark(BaseModel):
     id: Optional[PyObjectId] = Field(alias="_id")
-    user_id: PyObjectId
-    movie_id: PyObjectId
+    user_id: str
+    movie_id: str
 
     class Config:
         from_attributes = True

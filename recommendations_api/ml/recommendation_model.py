@@ -1,10 +1,10 @@
 # recommendation_service/recommendation_model.py
-from datetime import datetime, timedelta
-import random
 import io
 import logging
 import pickle
+import random
 import uuid
+from datetime import datetime, timedelta
 
 import implicit
 import numpy as np
@@ -13,10 +13,12 @@ from minio import Minio
 from motor.motor_asyncio import AsyncIOMotorDatabase
 from scipy.sparse import coo_matrix, csr_matrix
 from sklearn.preprocessing import MultiLabelBinarizer
-from bson import ObjectId
-from bson.errors import InvalidId
 
 from core.config import settings
+
+# from bson import ObjectId
+# from bson.errors import InvalidId
+
 
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
@@ -100,43 +102,35 @@ class RecommendationModel:
             obj = self.minio_client.get_object(settings.MINIO_BUCKET, key)
             data = pickle.load(obj)
             if model_type == "als":
-                self.als_model = data['model']
-                self.user_ids = data['user_ids']
-                self.movie_ids = data['movie_ids']
-                self.user_to_idx = data['user_to_idx']
-                self.movie_to_idx = data['movie_to_idx']
-                self.idx_to_movie = data['idx_to_movie']
-                self.als_user_item_matrix = data.get('user_item_matrix')
+                self.als_model = data["model"]
+                self.user_ids = data["user_ids"]
+                self.movie_ids = data["movie_ids"]
+                self.user_to_idx = data["user_to_idx"]
+                self.movie_to_idx = data["movie_to_idx"]
+                self.idx_to_movie = data["idx_to_movie"]
+                self.als_user_item_matrix = data.get("user_item_matrix")
                 logger.info(f"ALS model loaded from MinIO: {key}")
             elif model_type == "lightfm":
-                self.lightfm_model = data['model']
-                self.user_ids = data['user_ids']
-                self.movie_ids = data['movie_ids']
-                self.user_to_idx = data['user_to_idx']
-                self.movie_to_idx = data['movie_to_idx']
-                self.idx_to_movie = data['idx_to_movie']
-                self.lightfm_user_item_matrix = data.get('user_item_matrix')
-                self.item_features = data.get('item_features')
+                self.lightfm_model = data["model"]
+                self.user_ids = data["user_ids"]
+                self.movie_ids = data["movie_ids"]
+                self.user_to_idx = data["user_to_idx"]
+                self.movie_to_idx = data["movie_to_idx"]
+                self.idx_to_movie = data["idx_to_movie"]
+                self.lightfm_user_item_matrix = data.get("user_item_matrix")
+                self.item_features = data.get("item_features")
                 logger.info(f"LightFM model loaded from MinIO: {key}")
             return True
         except Exception as e:
-            logger.info(f"No {model_type.upper()} model found in MinIO or error loading: {e}")
+            logger.info(
+                f"No {model_type.upper()} model found in MinIO or error loading: {e}"
+            )
             return False
 
     async def partial_train(self, db: AsyncIOMotorDatabase, last_timestamp=None):
         """Инкрементальное дообучение моделей на основе новых взаимодействий"""
-                                   
-                                              
-                                            
-                                              
-                                                  
-                                                    
-                                                    
-                                                                        
-                                                          
+
         logger.info("Starting partial model training...")
-                              
-                                                                                 
 
         # Получаем новые взаимодействия с момента последнего обучения
         query = {"timestamp": {"$gt": last_timestamp}} if last_timestamp else {}
@@ -149,33 +143,65 @@ class RecommendationModel:
             return
 
         # Новые взаимодействия
-        new_interactions = [
-            (str(wm["user_id"]), str(wm["movie_id"]), 1.0 if wm["complete"] else 0.5) for wm in watched_movies
-        ] + [
-            (str(like["user_id"]), str(like["movie_id"]), like["rating"] / 10.0) for like in likes
-        ] + [
-            (str(bm["user_id"]), str(bm["movie_id"]), 0.3) for bm in bookmarks
-        ]
+        new_interactions = (
+            [
+                (
+                    str(wm["user_id"]),
+                    str(wm["movie_id"]),
+                    1.0 if wm["complete"] else 0.5,
+                )
+                for wm in watched_movies
+            ]
+            + [
+                (str(like["user_id"]), str(like["movie_id"]), like["rating"] / 10.0)
+                for like in likes
+            ]
+            + [(str(bm["user_id"]), str(bm["movie_id"]), 0.3) for bm in bookmarks]
+        )
 
         # Обновляем списки пользователей и фильмов
-        new_users = set(user_id for user_id, _, _ in new_interactions if user_id not in self.user_to_idx)
-        new_movies = set(movie_id for _, movie_id, _ in new_interactions if movie_id not in self.movie_to_idx)
+        new_users = set(
+            user_id
+            for user_id, _, _ in new_interactions
+            if user_id not in self.user_to_idx
+        )
+        new_movies = set(
+            movie_id
+            for _, movie_id, _ in new_interactions
+            if movie_id not in self.movie_to_idx
+        )
 
         if new_users:
             self.user_ids.extend(new_users)
-            self.user_to_idx.update({uid: idx for idx, uid in enumerate(self.user_ids, len(self.user_to_idx))})
+            self.user_to_idx.update(
+                {
+                    uid: idx
+                    for idx, uid in enumerate(self.user_ids, len(self.user_to_idx))
+                }
+            )
         if new_movies:
             self.movie_ids.extend(new_movies)
-            self.movie_to_idx.update({mid: idx for idx, mid in enumerate(self.movie_ids, len(self.movie_to_idx))})
-            self.idx_to_movie.update({idx: mid for mid, idx in self.movie_to_idx.items()})
+            self.movie_to_idx.update(
+                {
+                    mid: idx
+                    for idx, mid in enumerate(self.movie_ids, len(self.movie_to_idx))
+                }
+            )
+            self.idx_to_movie.update(
+                {idx: mid for mid, idx in self.movie_to_idx.items()}
+            )
 
         # Обновляем матрицы
         rows = [self.user_to_idx[uid] for uid, _, _ in new_interactions]
         cols = [self.movie_to_idx[mid] for _, mid, _ in new_interactions]
         data = [weight for _, _, weight in new_interactions]
 
-        new_als_matrix = csr_matrix((data, (rows, cols)), shape=(len(self.user_ids), len(self.movie_ids)))
-        new_lightfm_matrix = coo_matrix((data, (rows, cols)), shape=(len(self.user_ids), len(self.movie_ids)))
+        new_als_matrix = csr_matrix(
+            (data, (rows, cols)), shape=(len(self.user_ids), len(self.movie_ids))
+        )
+        new_lightfm_matrix = coo_matrix(
+            (data, (rows, cols)), shape=(len(self.user_ids), len(self.movie_ids))
+        )
 
         if self.als_user_item_matrix is not None:
             self.als_user_item_matrix = self.als_user_item_matrix + new_als_matrix
@@ -183,7 +209,9 @@ class RecommendationModel:
             self.als_user_item_matrix = new_als_matrix
 
         if self.lightfm_user_item_matrix is not None:
-            self.lightfm_user_item_matrix = self.lightfm_user_item_matrix + new_lightfm_matrix
+            self.lightfm_user_item_matrix = (
+                self.lightfm_user_item_matrix + new_lightfm_matrix
+            )
         else:
             self.lightfm_user_item_matrix = new_lightfm_matrix
 
@@ -192,9 +220,7 @@ class RecommendationModel:
 
         # Инкрементальное обучение LightFM
         self.lightfm_model.fit_partial(
-            self.lightfm_user_item_matrix,
-            item_features=self.item_features,
-            epochs=5
+            self.lightfm_user_item_matrix, item_features=self.item_features, epochs=5
         )
 
         self.save_models()
@@ -232,7 +258,6 @@ class RecommendationModel:
         self.movie_to_idx = {mid: idx for idx, mid in enumerate(self.movie_ids)}
         self.idx_to_movie = {idx: mid for mid, idx in self.movie_to_idx.items()}
 
-                                                                     
         rows = [self.user_to_idx[uid] for uid, _, _ in interactions]
         cols = [self.movie_to_idx[mid] for _, mid, _ in interactions]
         data = [weight for _, _, weight in interactions]
@@ -271,13 +296,9 @@ class RecommendationModel:
     async def get_user_row(
         self, user_id: str, db: AsyncIOMotorDatabase, model_type: str = "als"
     ) -> csr_matrix:
-        watched = (
-            await db["watched_movies"].find({"user_id": ObjectId(user_id)}).to_list(None)
-        )
-        likes = await db["likes"].find({"user_id": ObjectId(user_id)}).to_list(None)
-        bookmarks = (
-            await db["bookmarks"].find({"user_id": ObjectId(user_id)}).to_list(None)
-        )
+        watched = await db["watched_movies"].find({"user_id": user_id}).to_list(None)
+        likes = await db["likes"].find({"user_id": user_id}).to_list(None)
+        bookmarks = await db["bookmarks"].find({"user_id": user_id}).to_list(None)
 
         movie_weights = {}
         for wm in watched:
@@ -299,20 +320,26 @@ class RecommendationModel:
         matrix = csr_matrix if model_type == "als" else coo_matrix
         return matrix((data, (rows, cols)), shape=(1, len(self.movie_ids)))
 
-    async def get_recommendations(self, user_id: str, db: AsyncIOMotorDatabase, n: int = settings.RECOMMENDATIONS_LIMITS, model_type: str = "als") -> dict:
-        try:
-            ObjectId(user_id)
-        except InvalidId:
-            logger.error(f"Invalid user_id: {user_id}")
-            popular = await db["movies"].aggregate([
-                {"$sort": {"rating": -1}},
-                {"$limit": n}
-            ]).to_list(n)
-            recommendations = [str(movie["_id"]) for movie in popular] if popular else []
-            session_id = str(uuid.uuid4())
-            return {"source": "popular", "recommendations": recommendations, "session_id": session_id}
+    async def get_recommendations(
+        self,
+        user_id: str,
+        db: AsyncIOMotorDatabase,
+        n: int = settings.RECOMMENDATIONS_LIMITS,
+        model_type: str = "als",
+    ) -> dict:
+        # try:
+        #     user_id
+        # except InvalidId:
+        #     logger.error(f"Invalid user_id: {user_id}")
+        #     popular = await db["movies"].aggregate([
+        #         {"$sort": {"rating": -1}},
+        #         {"$limit": n}
+        #     ]).to_list(n)
+        #     recommendations = [str(movie["_id"]) for movie in popular] if popular else []
+        #     session_id = str(uuid.uuid4())
+        #     return {"source": "popular", "recommendations": recommendations, "session_id": session_id}
 
-        watched = await db["watched_movies"].find({"user_id": ObjectId(user_id)}).to_list(None)
+        watched = await db["watched_movies"].find({"user_id": user_id}).to_list(None)
         watched = set(str(w["movie_id"]) for w in watched)
 
         if model_type == "als":
@@ -323,54 +350,55 @@ class RecommendationModel:
             model = self.lightfm_model
 
         if user_item_matrix is None or not self.user_ids:
-                       
-            popular = await db["movies"].aggregate([
-                {"$sort": {"rating": -1}},
-                {"$limit": n}
-            ]).to_list(n)
-             
-                               
-            recommendations = [str(movie["_id"]) for movie in popular] if popular else []
-             
-            session_id = str(uuid.uuid4())
-                        
-            logger.info(f"Returning popular movies for user {user_id} (no {model_type} model): {recommendations}, session {session_id}")
-             
-                    
-                                    
-            return {"source": "popular", "recommendations": recommendations, "session_id": session_id}
-                                         
-             
 
-                                                                   
+            popular = (
+                await db["movies"]
+                .aggregate([{"$sort": {"rating": -1}}, {"$limit": n}])
+                .to_list(n)
+            )
+
+            recommendations = (
+                [str(movie["_id"]) for movie in popular] if popular else []
+            )
+
+            session_id = str(uuid.uuid4())
+
+            logger.info(
+                f"Returning popular movies for user {user_id} (no {model_type} model): {recommendations}, session {session_id}"
+            )
+
+            return {
+                "source": "popular",
+                "recommendations": recommendations,
+                "session_id": session_id,
+            }
 
         if user_id not in self.user_to_idx:
-                       
-            popular = await db["movies"].aggregate([
-                {"$sort": {"rating": -1}},
-                {"$limit": n}
-            ]).to_list(n)
-             
-                               
-            recommendations = [str(movie["_id"]) for movie in popular] if popular else []
-             
+
+            popular = (
+                await db["movies"]
+                .aggregate([{"$sort": {"rating": -1}}, {"$limit": n}])
+                .to_list(n)
+            )
+
+            recommendations = (
+                [str(movie["_id"]) for movie in popular] if popular else []
+            )
+
             session_id = str(uuid.uuid4())
-                        
-            logger.info(f"Returning popular movies for new user {user_id} ({model_type}): {recommendations}, session {session_id}")
-             
-                    
-                                    
-            return {"source": "popular", "recommendations": recommendations, "session_id": session_id}
-                                         
-             
+
+            logger.info(
+                f"Returning popular movies for new user {user_id} ({model_type}): {recommendations}, session {session_id}"
+            )
+
+            return {
+                "source": "popular",
+                "recommendations": recommendations,
+                "session_id": session_id,
+            }
 
         user_idx = self.user_to_idx[user_id]
         user_row = await self.get_user_row(user_id, db, model_type)
-                               
-                                                
-                                                 
-                          
-         
 
         if model_type == "als":
             recommended_ids, _ = model.recommend(user_idx, user_row, N=n + len(watched))
@@ -380,12 +408,13 @@ class RecommendationModel:
                 if idx in self.idx_to_movie and self.idx_to_movie[idx] not in watched
             ][:n]
         else:
-            scores = model.predict(user_idx, np.arange(len(self.movie_ids)), item_features=self.item_features)
-                         
-                                               
-                                                 
-             
-            top_items = np.argsort(-scores)[:n + len(watched)]
+            scores = model.predict(
+                user_idx,
+                np.arange(len(self.movie_ids)),
+                item_features=self.item_features,
+            )
+
+            top_items = np.argsort(-scores)[: n + len(watched)]
             recommendations = [
                 self.idx_to_movie[idx]
                 for idx in top_items
@@ -394,7 +423,11 @@ class RecommendationModel:
 
         # Подмешивание новых непросмотренных фильмов (добавленных за последний месяц)
         one_month_ago = datetime.utcnow() - timedelta(days=30)
-        all_movies = await db["movies"].find({"creation_date": {"$gte": one_month_ago}}).to_list(None)
+        all_movies = (
+            await db["movies"]
+            .find({"creation_date": {"$gte": one_month_ago}})
+            .to_list(None)
+        )
         new_unwatched_movies = [
             str(movie["_id"])
             for movie in all_movies
@@ -405,20 +438,28 @@ class RecommendationModel:
         # Определяем количество новых фильмов для добавления (минимум 1, максимум треть от n)
         n_unwatched = min(1, max(1, n // 3))
         if new_unwatched_movies and len(recommendations) >= n_unwatched:
-            recommendations = recommendations[:-n_unwatched]  # Убираем последние элементы
-            selected_new_movies = random.sample(new_unwatched_movies, min(n_unwatched, len(new_unwatched_movies)))
+            recommendations = recommendations[
+                :-n_unwatched
+            ]  # Убираем последние элементы
+            selected_new_movies = random.sample(
+                new_unwatched_movies, min(n_unwatched, len(new_unwatched_movies))
+            )
             recommendations.extend(selected_new_movies)
-            logger.info(f"Added {len(selected_new_movies)} new unwatched movies to recommendations for user {user_id}")
+            logger.info(
+                f"Added {len(selected_new_movies)} new unwatched movies to recommendations for user {user_id}"
+            )
 
         session_id = str(uuid.uuid4())
-                    
-        logger.info(f"Generated {model_type} recommendations for user {user_id}: {recommendations}, session {session_id}")
-         
-                
-                                 
-        return {"source": model_type, "recommendations": recommendations, "session_id": session_id}
-                                     
-         
+
+        logger.info(
+            f"Generated {model_type} recommendations for user {user_id}: {recommendations}, session {session_id}"
+        )
+
+        return {
+            "source": model_type,
+            "recommendations": recommendations,
+            "session_id": session_id,
+        }
 
 
 recommendation_model = RecommendationModel()

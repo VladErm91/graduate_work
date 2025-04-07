@@ -1,11 +1,12 @@
-from datetime import datetime, timedelta, timezone
 import random
+import uuid
+from datetime import datetime, timedelta, timezone
 
 import pymongo
 from faker import Faker
 
 # Настройки подключения к MongoDB
-MONGO_URL = "mongodb://mongodb:27017"
+MONGO_URL = "mongodb://localhost:27017"
 DATABASE_NAME = "cinema"
 
 # Подключение к MongoDB
@@ -66,11 +67,11 @@ db.watched_movies.drop()
 movies = []
 for _ in range(NUM_MOVIES):
     movie = {
-        "title": fake.catch_phrase(),
-        "description": fake.text(),
+        "_id": str(uuid.uuid4()),  # Генерация UUID для _id
         "genres": list(random.sample(GENRES, k=random.randint(1, 3))),
         "rating": round(random.uniform(1, 10), 1),
-        "creation_date": datetime.now(timezone.utc) - timedelta(days=random.randint(0, 60))  # Случайная дата за последние 2 месяца
+        "creation_date": datetime.now(timezone.utc)
+        - timedelta(days=random.randint(0, 60)),  # Случайная дата за последние 2 месяца
     }
     movies.append(movie)
     if len(movies) >= BATCH_SIZE:
@@ -83,10 +84,8 @@ if movies:
 users = []
 for _ in range(NUM_USERS):
     user = {
-        # '_id': str(uuid4()),
+        "_id": str(uuid.uuid4()),  # Генерация UUID для _id
         "username": fake.user_name(),
-        # "email": fake.email(),
-        # "hashed_password": fake.password(),
     }
     users.append(user)
     if len(users) >= BATCH_SIZE:

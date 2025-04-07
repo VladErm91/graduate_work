@@ -1,29 +1,33 @@
 from datetime import datetime
-from typing import Annotated, Optional, List
+from typing import Annotated, List, Optional
+from uuid import UUID
 
 from bson import ObjectId
 from models.models import PyObjectId
 from pydantic import BaseModel, Field
 
+
 class UserBase(BaseModel):
     username: str
+
 
 class UserCreate(UserBase):
     pass
 
+
 class User(UserBase):
-    id: Optional[PyObjectId] = Field(alias="_id", default=None)
+    id: Optional[UUID] = Field(alias="_id", default=None)
 
     class Config:
         from_attributes = True
-        json_encoders = {ObjectId: str}
+        json_encoders = {UUID: str}
         populate_by_name = True
 
+
 class MovieBase(BaseModel):
-    title: str
-    description: Optional[str] = None
     rating: float
     genres: List[str] = None
+    creation_date: datetime
 
 
 class MovieCreate(MovieBase):
@@ -31,11 +35,12 @@ class MovieCreate(MovieBase):
 
 
 class Movie(MovieBase):
-    id: Optional[PyObjectId] = Field(alias="_id", default=None)
+    id: Optional[UUID] = Field(alias="_id", default=None)
 
     class Config:
         from_attributes = True
-        json_encoders = {ObjectId: str}
+        json_encoders = {UUID: str}
+
 
 class LikeBase(BaseModel):
     user_id: str
@@ -64,7 +69,7 @@ class WatchedMovieBase(BaseModel):
     user_id: str
     movie_id: str
     watched_at: datetime
-    complete:bool
+    complete: bool
 
 
 class WatchedMovieCreate(WatchedMovieBase):

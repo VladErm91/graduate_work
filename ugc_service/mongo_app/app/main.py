@@ -1,7 +1,7 @@
 # fastapi_mongo_ugc/app/main.py
 import sentry_sdk
 import uvicorn
-from api.v1 import users, bookmarks, likes, movies, reviews
+from api.v1 import bookmarks, likes, movies, reviews, users
 from core.config import settings
 from core.logger import LOGGING
 from fastapi import FastAPI
@@ -32,7 +32,6 @@ async def trigger_error():
 # Base.metadata.create_all(bind=engine)
 
 # Подключение маршрутов
-app.include_router(users.router, prefix="/api/ugc_service/v1/users", tags=["users"])
 app.include_router(movies.router, prefix="/api/ugc_service/v1/movies", tags=["movies"])
 app.include_router(likes.router, prefix="/api/ugc_service/v1/likes", tags=["likes"])
 app.include_router(

@@ -4,7 +4,7 @@ from typing import List
 from bson import ObjectId
 from core.config import db
 from core.jwt import security_jwt
-from core.utils import convert_objectid, hash_to_str
+from core.utils import convert_objectid
 from fastapi import APIRouter, Depends, HTTPException
 from schemas.schemas import Review, ReviewCreate
 from typing_extensions import Annotated
@@ -30,7 +30,7 @@ async def create_review(
         The created Review object from the database.
     """
     review_dict = review.model_dump()
-    review_dict["user_id"] = hash_to_str(user["id"])
+    review_dict["user_id"] = user["id"]
     logger.info(f"review_dict: {review_dict}")
     result = await db.reviews.insert_one(review_dict)
     created_review = convert_objectid(
@@ -141,7 +141,7 @@ async def delete_review(
         HTTPException: 404 if the review is not found.
     """
     review = await db.reviews.find_one(
-        {"_id": ObjectId(review_id), "user_id": hash_to_str(user["id"])}
+        {"_id": ObjectId(review_id), "user_id": user["id"]}
     )
     if not review:
         raise HTTPException(status_code=404, detail="Review not found")
