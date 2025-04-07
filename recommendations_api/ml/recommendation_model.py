@@ -328,7 +328,7 @@ class RecommendationModel:
         model_type: str = "als",
     ) -> dict:
         # try:
-        #     user_id
+        #     ObjectId(user_id)
         # except InvalidId:
         #     logger.error(f"Invalid user_id: {user_id}")
         #     popular = await db["movies"].aggregate([
