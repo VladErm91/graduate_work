@@ -3,9 +3,7 @@ services:
   ugc_service:
     build: ./mongo_app/app
     expose:
-      - "8766"
-    ports:  
-      - "8766:8766"        
+      - "8766"       
 
   mongodb:
     image: mongo
@@ -14,17 +12,6 @@ services:
     volumes:
       - mongodb_data:/data/db
     restart: unless-stopped
-
-  # nginx:
-  #   image: nginx:latest
-  #   volumes:
-  #     - ./infra/nginx/nginx.conf:/etc/nginx/nginx.conf:ro
-  #     - ./infra/nginx/conf.d:/etc/nginx/conf.d:ro
-  #     - ./infra/nginx/logs/:/var/log/nginx/
-  #   depends_on:
-  #     - ugc_service
-  #   ports:
-  #   - "80:80"
 
 volumes:
   mongodb_data:
