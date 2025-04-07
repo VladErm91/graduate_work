@@ -1,7 +1,7 @@
 import json
 import logging
 import random
-from datetime import datetime
+from datetime import datetime, timezone
 
 import httpx
 from fastapi import APIRouter, Depends, HTTPException, Query, Request
@@ -120,7 +120,7 @@ async def get_recommendations(
     """
     Возвращает рекомендации для пользователя.
     """
-    
+
     # user_id = hash_uid(user["id"])
     model_type = (
         model if model in ["als", "lightfm"] else random.choice(["als", "lightfm"])
@@ -144,7 +144,7 @@ async def get_recommendations(
             "model_type": model_type,
             "recommendations": result["recommendations"],
             "session_id": result["session_id"],
-            "timestamp": datetime.utcnow(),
+            "timestamp": datetime.now(timezone.utc),
         }
     )
 
@@ -167,7 +167,7 @@ async def submit_feedback(
             "session_id": session_id,
             "movie_id": {"_id": movie_id},
             "liked": liked,
-            "timestamp": datetime.utcnow(),
+            "timestamp": datetime.now(timezone.utc),
         }
     )
     logger.info(

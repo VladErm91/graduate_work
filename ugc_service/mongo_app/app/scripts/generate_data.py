@@ -62,6 +62,7 @@ BATCH_SIZE = 100
 #         "description": fake.text(),
 #         "genres": random.choice(GENRES),
 #         "rating": round(random.uniform(1, 10), 1),
+#         "publication_date": fake.date_time(),
 #     }
 #     movies.append(movie)
 #     if len(movies) >= BATCH_SIZE:

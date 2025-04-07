@@ -32,7 +32,7 @@ async def migrate_movies():
 
             sql_query = text(
                 """
-                SELECT f.id, f.title, f.description, f.rating, g.name AS genre
+                SELECT f.id, f.title, f.description, f.rating, f.creation_date, g.name AS genre
                 FROM content.film_work f
                 JOIN content.genre_film_work gf ON gf.film_work_id = f.id
                 JOIN content.genre g ON g.id = gf.genre_id;

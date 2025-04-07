@@ -1,11 +1,11 @@
+from datetime import datetime, timedelta, timezone
 import random
 
 import pymongo
 from faker import Faker
-from uuid import uuid4
 
 # Настройки подключения к MongoDB
-MONGO_URL = "mongodb://localhost:27017"
+MONGO_URL = "mongodb://mongodb:27017"
 DATABASE_NAME = "cinema"
 
 # Подключение к MongoDB
@@ -47,20 +47,20 @@ GENRES = [
 NUM_USERS = 100
 NUM_MOVIES = 200
 NUM_LIKES = 500  # Увеличили для лучшей плотности данных
-NUM_REVIEWS = 100
-NUM_BOOKMARKS = 500
-NUM_WATCHEDFILMS = 2000
+NUM_REVIEWS = 200
+NUM_BOOKMARKS = 300
+NUM_WATCHEDFILMS = 1000
 
 # Размер пачки для вставки
 BATCH_SIZE = 100
 
 # Очистка базы (опционально)
-# db.movies.drop()
-# db.users.drop()
-# db.likes.drop()
-# db.reviews.drop()
-# db.bookmarks.drop()
-# db.watched_movies.drop()
+db.movies.drop()
+db.users.drop()
+db.likes.drop()
+db.reviews.drop()
+db.bookmarks.drop()
+db.watched_movies.drop()
 
 # Генерация фильмов
 movies = []
@@ -70,6 +70,7 @@ for _ in range(NUM_MOVIES):
         "description": fake.text(),
         "genres": list(random.sample(GENRES, k=random.randint(1, 3))),
         "rating": round(random.uniform(1, 10), 1),
+        "creation_date": datetime.now(timezone.utc) - timedelta(days=random.randint(0, 60))  # Случайная дата за последние 2 месяца
     }
     movies.append(movie)
     if len(movies) >= BATCH_SIZE:
@@ -94,7 +95,7 @@ for _ in range(NUM_USERS):
 if users:
     db.users.insert_many(users)
 
-# # Извлекаем ID один раз
+# Извлекаем ID один раз
 user_ids = list(db.users.find().distinct("_id"))
 movie_ids = list(db.movies.find().distinct("_id"))
 
