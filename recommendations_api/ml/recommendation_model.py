@@ -16,9 +16,6 @@ from sklearn.preprocessing import MultiLabelBinarizer
 
 from core.config import settings
 
-# from bson import ObjectId
-# from bson.errors import InvalidId
-
 
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
@@ -327,17 +324,6 @@ class RecommendationModel:
         n: int = settings.RECOMMENDATIONS_LIMITS,
         model_type: str = "als",
     ) -> dict:
-        # try:
-        #     ObjectId(user_id)
-        # except InvalidId:
-        #     logger.error(f"Invalid user_id: {user_id}")
-        #     popular = await db["movies"].aggregate([
-        #         {"$sort": {"rating": -1}},
-        #         {"$limit": n}
-        #     ]).to_list(n)
-        #     recommendations = [str(movie["_id"]) for movie in popular] if popular else []
-        #     session_id = str(uuid.uuid4())
-        #     return {"source": "popular", "recommendations": recommendations, "session_id": session_id}
 
         watched = await db["watched_movies"].find({"user_id": user_id}).to_list(None)
         watched = set(str(w["movie_id"]) for w in watched)
