@@ -97,15 +97,15 @@ async def get_base_recommendations_for_user(
                 settings.url_movies_search, params=params, headers=headers
             )
 
-            if response.status_code != 200:
-                raise HTTPException(
-                    status_code=response.status_code, detail="Error fetching movies"
-                )
-            all_movies = response.json()
+        if response.status_code != 200:
+            raise HTTPException(
+                 status_code=response.status_code, detail="Error fetching movies"
+            )
+        all_movies = response.json()
 
-            movie_ids = [movie["id"] for movie in all_movies]
-
-        return {"movies": movie_ids}
+        movie_ids = [movie["uuid"] for movie in all_movies]
+        
+        return {"recommendations": movie_ids}
 
 
 @router.get("/{user_id}", response_model=RecommendationResponse)

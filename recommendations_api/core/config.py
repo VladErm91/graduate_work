@@ -7,6 +7,7 @@ from pydantic_settings import BaseSettings
 # Корень проекта
 BASE_DIR = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 
+
 class Settings(BaseSettings):
     # Основные настройки проекта
     project_name: str = "recommendation_api"

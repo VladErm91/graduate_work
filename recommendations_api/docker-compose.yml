@@ -10,15 +10,10 @@ services:
       - .env
     depends_on:
       - redis
-      - mongodb
       - minio
+      - mongodb
     environment:
       PYTHONPATH: /app
-      REDIS_URL: redis://redis:6379/0
-      MINIO_ENDPOINT: minio:9000
-      MINIO_ACCESS_KEY: minioadmin
-      MINIO_SECRET_KEY: miniopassword
-      MINIO_BUCKET: models
       OPENBLAS_NUM_THREADS: 1
     ports:
       - "8084:8084"
@@ -35,11 +30,6 @@ services:
       - minio
     restart: unless-stopped
     environment:
-      - REDIS_URL=redis://redis:6379/0
-      - MINIO_ENDPOINT=minio:9000
-      - MINIO_ACCESS_KEY=minioadmin
-      - MINIO_SECRET_KEY=miniopassword
-      - MINIO_BUCKET=models
       - OPENBLAS_NUM_THREADS=1
 
   rq_scheduler:
@@ -50,11 +40,6 @@ services:
       - minio
     environment:
       - PYTHONPATH=/app
-      - REDIS_URL=redis://redis:6379/0
-      - MINIO_ENDPOINT=minio:9000
-      - MINIO_ACCESS_KEY=minioadmin
-      - MINIO_SECRET_KEY=miniopassword
-      - MINIO_BUCKET=models
       - OPENBLAS_NUM_THREADS=1
     
   metrics:
