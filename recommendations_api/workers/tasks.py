@@ -1,4 +1,3 @@
-# recommendation_service/tasks.py
 import asyncio
 import json
 import logging
@@ -66,11 +65,9 @@ async def train_model_async(partial: bool = False, train_als: bool = False):
     new_interactions = (
         await db["watched_movies"]
         .find({"timestamp": {"$gt": last_train_time}} if last_train_time else {})
-        .to_list(None)
-        or await db["likes"]
+        .to_list(None) or await db["likes"]
         .find({"timestamp": {"$gt": last_train_time}} if last_train_time else {})
-        .to_list(None)
-        or await db["bookmarks"]
+        .to_list(None) or await db["bookmarks"]
         .find({"timestamp": {"$gt": last_train_time}} if last_train_time else {})
         .to_list(None)
     )

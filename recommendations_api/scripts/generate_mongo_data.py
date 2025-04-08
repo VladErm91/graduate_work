@@ -5,6 +5,8 @@ from datetime import datetime, timedelta, timezone
 import pymongo
 from faker import Faker
 
+from core.enum import Genre
+
 # Настройки подключения к MongoDB
 MONGO_URL = "mongodb://localhost:27017"
 DATABASE_NAME = "cinema"
@@ -15,34 +17,6 @@ db = client[DATABASE_NAME]
 
 # Инициализация Faker
 fake = Faker()
-GENRES = [
-    "Action",
-    "Adventure",
-    "Fantasy",
-    "Sci-Fi",
-    "Drama",
-    "Music",
-    "Romance",
-    "Thriller",
-    "Mystery",
-    "Comedy",
-    "Animation",
-    "Family",
-    "Biography",
-    "Musical",
-    "Crime",
-    "Short",
-    "Western",
-    "Documentary",
-    "History",
-    "War",
-    "Game-Show",
-    "Reality-TV",
-    "Horror",
-    "Sport",
-    "Talk-Show",
-    "News",
-]
 
 # Количество записей для генерации
 NUM_USERS = 100
@@ -68,10 +42,9 @@ movies = []
 for _ in range(NUM_MOVIES):
     movie = {
         "_id": str(uuid.uuid4()),  # Генерация UUID для _id
-        "genres": list(random.sample(GENRES, k=random.randint(1, 3))),
+        "genres": list(random.sample(Genre, k=random.randint(1, 3))),
         "rating": round(random.uniform(1, 10), 1),
-        "creation_date": datetime.now(timezone.utc)
-        - timedelta(days=random.randint(0, 60)),  # Случайная дата за последние 2 месяца
+        "creation_date": datetime.now(timezone.utc) - timedelta(days=random.randint(0, 60)),  # Случайная дата за последние 2 месяца
     }
     movies.append(movie)
     if len(movies) >= BATCH_SIZE:

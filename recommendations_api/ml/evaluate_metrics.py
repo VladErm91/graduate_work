@@ -1,4 +1,3 @@
-# recommendation_service/evaluate_metrics.py
 import asyncio
 import logging
 

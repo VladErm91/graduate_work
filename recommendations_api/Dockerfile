@@ -18,5 +18,3 @@ RUN pip install --upgrade pip && \
     pip install git+https://github.com/daviddavo/lightfm.git#egg=lightfm
 
 COPY . .
-
-CMD ["uvicorn", "main:app", "--host", "0.0.0.0", "--port", "8084"]

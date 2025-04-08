@@ -1,5 +1,6 @@
+# Подключение всех сервисов проекта для гибкости управления
 include:
-  - './infra/main.yml'
-  - './ugc_service/ugc.yml'
+  - './infra/main.yml' # - сервисы авторизации и фильмов
+  - './ugc_service/ugc.yml' # - сервис UGC
+  - './recommendations_api/docker-compose.yml' # - сервис рекомедаций
   - './infra/nginx.yml'
-  - './recommendations_api/docker-compose.yml'

@@ -9,16 +9,18 @@ BASE_DIR = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 
 
 class Settings(BaseSettings):
-    project_name: str = "recomend_api"
+    project_name: str = "recommendation_api"
 
     # Настройки базы данных
     MONGO_URL: str = "mongodb://mongodb:27017"
     DATABASE_NAME: str = "cinema"
-    url_movies_search: str = "http://movie_api:8000/api/v1/films/"
-    url_movies_id: str = "http://movie_api:8000/api/v1/films/{film_uuid}"
     RECOMMENDATIONS_LIMITS: int = 3
+
+    url_movies_search: str = "http://movie_api:8000/api/v1/films/"
+
     # Настройки Redis
     REDIS_URL: str = "redis://redis:6379/0"
+    REDIS_CACHE_EXPIRE: int = 3600
 
     # Настройки Minio
     MINIO_ENDPOINT: str = "minio:9000"
@@ -37,9 +39,6 @@ class Settings(BaseSettings):
         alias="SECRET_KEY",
     )
     algorithm: str = Field(default="HS256", alias="ALGORITHM")
-
-    def get_url(self) -> str:
-        return f"postgresql+asyncpg://{self.db_user}:{self.db_password}@{self.db_host}:{self.db_port}/{self.db_name}"
 
 
 settings = Settings()

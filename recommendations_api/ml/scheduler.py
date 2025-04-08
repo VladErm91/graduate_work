@@ -1,4 +1,3 @@
-# recommendation_service/scheduler.py
 import asyncio
 import logging
 

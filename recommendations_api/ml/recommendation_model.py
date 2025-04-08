@@ -1,4 +1,3 @@
-# recommendation_service/recommendation_model.py
 import io
 import logging
 import pickle
@@ -15,7 +14,6 @@ from scipy.sparse import coo_matrix, csr_matrix
 from sklearn.preprocessing import MultiLabelBinarizer
 
 from core.config import settings
-
 
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)

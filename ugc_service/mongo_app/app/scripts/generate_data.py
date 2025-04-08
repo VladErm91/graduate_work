@@ -1,7 +1,6 @@
 import random
 
 import pymongo
-from bson import ObjectId
 from faker import Faker
 
 # Настройки подключения к MongoDB
@@ -71,7 +70,7 @@ BATCH_SIZE = 100
 #     db.movies.insert_many(movies)
 
 
-# Генерация пользователей
+# # Генерация пользователей
 # users = []
 # for _ in range(NUM_USERS):
 #     user = {

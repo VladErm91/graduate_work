@@ -4,7 +4,6 @@ import random
 from datetime import datetime, timezone
 
 import httpx
-from bson import ObjectId
 from fastapi import APIRouter, Depends, HTTPException, Query, Request
 from redis.asyncio import Redis
 from typing_extensions import Annotated
@@ -22,7 +21,7 @@ router = APIRouter(tags=["recommend"])
 
 
 @router.get(
-    "/genres_top",
+    "/genres_top/{user_id}",
     summary="Get top movies by user's favorite genres",
     description="Returns a list of top-rated movies that match the user's favorite genres.",
 )
@@ -134,7 +133,7 @@ async def get_recommendations(
     result = await recommendation_model.get_recommendations(
         user_id, db, model_type=model_type
     )
-    await redis.setex(cache_key, 3600, json.dumps(result))
+    await redis.setex(cache_key, settings.REDIS_CACHE_EXPIRE, json.dumps(result))
 
     # Сохранение рекомендаций для анализа
     await db["recommendation_logs"].insert_one(

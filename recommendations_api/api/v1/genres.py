@@ -5,13 +5,13 @@ from typing_extensions import Annotated
 
 from core.config import db
 from core.jwt import security_jwt
-from models.genres import Genre
+from core.enum import Genre
 
 router = APIRouter(tags=["genres"])
 
 
 @router.post(
-    "/genres",
+    "/genres/{user_id}",
     summary="Add user's favorite genres",
     description="Add a list of genres to the user's favorite genres list.",
     status_code=status.HTTP_200_OK,

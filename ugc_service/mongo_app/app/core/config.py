@@ -7,11 +7,9 @@ from pydantic_settings import BaseSettings
 
 class Settings(BaseSettings):
     project_name: str = "rating_review_service"
-    # MONGO_URL: str = Field(default="localhost", alias="MONGO_URL")
     MONGO_URL: str = "mongodb://mongodb:27017"
     DATABASE_NAME: str = "cinema"
     sentry_dsn: str = ""
-    # sentry_dsn: str = Field(default="", alias="SENTRY_DSN")
 
     # JWTAuthenticanion
     secret_key: str = Field(
