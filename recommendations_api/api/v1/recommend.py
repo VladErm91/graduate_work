@@ -28,7 +28,7 @@ router = APIRouter(tags=["recommend"])
 async def get_base_recommendations_for_user(
     request: Request,
     user: Annotated[dict, Depends(security_jwt)],  # Данные пользователя из JWT
-    limit: int = Query(6, description="Number of movies to return", ge=1, le=50),
+    limit: int = Query(settings.RECOMMENDATIONS_LIMITS, description="Number of movies to return", ge=1, le=50),
 ):
     """
     Получает топ фильмов по любимым жанрам пользователя из MongoDB и делает запрос в эндпоинт movie_api.
