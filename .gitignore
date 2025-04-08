@@ -81,6 +81,8 @@ celerybeat-schedule
 
 # dotenv
 .env
+.env.main
+.env.etl
 .dockerignore
 .pre-commit-config.yaml
 
