@@ -1,7 +1,7 @@
 # fastapi_mongo_ugc/app/main.py
 import sentry_sdk
 import uvicorn
-from api.v1 import bookmarks, likes, movies, reviews, users
+from api.v1 import bookmarks, likes, movies, reviews
 from core.config import settings
 from core.logger import LOGGING
 from fastapi import FastAPI
