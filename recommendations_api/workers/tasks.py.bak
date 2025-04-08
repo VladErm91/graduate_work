@@ -74,6 +74,7 @@ async def train_model_async(partial: bool = False, train_als: bool = False):
         .to_list(None)
     )
 
+
     if partial and new_interactions:
         await recommendation_model.partial_train(db, last_train_time)
     else:

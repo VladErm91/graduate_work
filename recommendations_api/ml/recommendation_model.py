@@ -4,22 +4,48 @@ import pickle
 import random
 import uuid
 from datetime import datetime, timedelta
+from time import time
 
 import implicit
 import numpy as np
 from lightfm import LightFM
 from minio import Minio
 from motor.motor_asyncio import AsyncIOMotorDatabase
+from prometheus_client import Counter, Gauge, Histogram
 from scipy.sparse import coo_matrix, csr_matrix
 from sklearn.preprocessing import MultiLabelBinarizer
 
 from core.config import settings
+from core.metrics import (
+    MATRIX_SIZE,  # Импортируем существующие метрики
+    TRAIN_COUNT,
+    TRAIN_DURATION,
+)
 
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
 
 ALS_MODEL_KEY = "als_model.pkl"
 LIGHTFM_MODEL_KEY = "lightfm_model.pkl"
+
+# Новые метрики для рекомендаций
+
+
+RECOMMENDATION_DURATION = Histogram(
+    "recommendation_duration_seconds",
+    "Time taken to generate recommendations",
+    ["model_type"],
+)
+POPULAR_RECOMMENDATIONS = Counter(
+    "popular_recommendations_total",
+    "Total number of times popular recommendations were returned",
+    ["reason"],
+)
+MODEL_STATUS = Gauge(
+    "model_loaded_status",
+    "Status of model loading (1 = loaded, 0 = not loaded)",
+    ["model_type"],
+)
 
 
 class RecommendationModel:
@@ -44,6 +70,10 @@ class RecommendationModel:
         # Сохраняем статус загрузки моделей
         self.als_loaded = self.load_model(ALS_MODEL_KEY, "als")
         self.lightfm_loaded = self.load_model(LIGHTFM_MODEL_KEY, "lightfm")
+
+        # Устанавливаем начальные значения статуса моделей
+        MODEL_STATUS.labels(model_type="als").set(1 if self.als_loaded else 0)
+        MODEL_STATUS.labels(model_type="lightfm").set(1 if self.lightfm_loaded else 0)
 
     def ensure_bucket(self):
         if not self.minio_client.bucket_exists(settings.MINIO_BUCKET):
@@ -70,6 +100,7 @@ class RecommendationModel:
             length=buffer.getbuffer().nbytes,
         )
         logger.info(f"ALS model saved to MinIO: {ALS_MODEL_KEY}")
+        MODEL_STATUS.labels(model_type="als").set(1)  # Модель загружена
 
         lightfm_data = {
             "model": self.lightfm_model,
@@ -91,6 +122,7 @@ class RecommendationModel:
             length=buffer.getbuffer().nbytes,
         )
         logger.info(f"LightFM model saved to MinIO: {LIGHTFM_MODEL_KEY}")
+        MODEL_STATUS.labels(model_type="lightfm").set(1)  # Модель загружена
 
     def load_model(self, key: str, model_type: str) -> bool:
         try:
@@ -126,6 +158,7 @@ class RecommendationModel:
         """Инкрементальное дообучение моделей на основе новых взаимодействий"""
 
         logger.info("Starting partial model training...")
+        start_time = time()
 
         # Получаем новые взаимодействия с момента последнего обучения
         query = {"timestamp": {"$gt": last_timestamp}} if last_timestamp else {}
@@ -210,6 +243,10 @@ class RecommendationModel:
         else:
             self.lightfm_user_item_matrix = new_lightfm_matrix
 
+        # Обновляем метрики размера матрицы
+        MATRIX_SIZE.labels(model="als").set(self.als_user_item_matrix.nnz)
+        MATRIX_SIZE.labels(model="lightfm").set(self.lightfm_user_item_matrix.nnz)
+
         # Полное обучение ALS (нет fit_partial)
         self.als_model.fit(self.als_user_item_matrix)
 
@@ -219,10 +256,15 @@ class RecommendationModel:
         )
 
         self.save_models()
+        duration = time() - start_time
+        TRAIN_DURATION.labels(type="partial").observe(duration)
+        TRAIN_COUNT.labels(type="partial").inc()
         logger.info("Partial model training completed for ALS and LightFM.")
 
     async def train(self, db: AsyncIOMotorDatabase):
         logger.info("Starting model training...")
+        start_time = time()
+
         watched_movies = await db["watched_movies"].find().to_list(None)
         likes = await db["likes"].find().to_list(None)
         bookmarks = await db["bookmarks"].find().to_list(None)
@@ -263,6 +305,10 @@ class RecommendationModel:
             (data, (rows, cols)), shape=(len(self.user_ids), len(self.movie_ids))
         )
 
+        # Обновляем метрики размера матрицы
+        MATRIX_SIZE.labels(model="als").set(self.als_user_item_matrix.nnz)
+        MATRIX_SIZE.labels(model="lightfm").set(self.lightfm_user_item_matrix.nnz)
+
         # Подготовка item_features в формате CSR
         movies = await db["movies"].find().to_list(None)
         genres = [
@@ -286,6 +332,9 @@ class RecommendationModel:
             self.lightfm_user_item_matrix, item_features=self.item_features, epochs=10
         )
         self.save_models()
+        duration = time() - start_time
+        TRAIN_DURATION.labels(type="full").observe(duration)
+        TRAIN_COUNT.labels(type="full").inc()
         logger.info("Model training completed for ALS and LightFM.")
 
     async def get_user_row(
@@ -323,6 +372,8 @@ class RecommendationModel:
         model_type: str = "als",
     ) -> dict:
 
+        start_time = time()
+
         watched = await db["watched_movies"].find({"user_id": user_id}).to_list(None)
         watched = set(str(w["movie_id"]) for w in watched)
 
@@ -350,6 +401,9 @@ class RecommendationModel:
             logger.info(
                 f"Returning popular movies for user {user_id} (no {model_type} model): {recommendations}, session {session_id}"
             )
+            duration = time() - start_time
+            RECOMMENDATION_DURATION.labels(model_type="popular").observe(duration)
+            POPULAR_RECOMMENDATIONS.labels(reason="no_model").inc()
 
             return {
                 "source": "popular",
@@ -375,6 +429,9 @@ class RecommendationModel:
                 f"Returning popular movies for new user {user_id} ({model_type}): {recommendations}, session {session_id}"
             )
 
+            duration = time() - start_time
+            RECOMMENDATION_DURATION.labels(model_type="popular").observe(duration)
+            POPULAR_RECOMMENDATIONS.labels(reason="new_user").inc()
             return {
                 "source": "popular",
                 "recommendations": recommendations,
@@ -434,6 +491,8 @@ class RecommendationModel:
             )
 
         session_id = str(uuid.uuid4())
+        duration = time() - start_time
+        RECOMMENDATION_DURATION.labels(model_type=model_type).observe(duration)
 
         logger.info(
             f"Generated {model_type} recommendations for user {user_id}: {recommendations}, session {session_id}"

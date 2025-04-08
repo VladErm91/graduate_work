@@ -1,184 +1,198 @@
-# Проектная работа: Рекомендательная система
+### Рекомендательная система
+  
+API для рекомендаций фильмов на основе предпочтений пользователей и истории просмотров с использованием моделей машинного обучения (ALS и LightFM).
 
-Ссылка на репозиторий: https://github.com/VladErm91/graduate_work
+#### Назначение
+Проект предоставляет REST API для получения персонализированных рекомендаций фильмов, основанных на данных о просмотрах, лайках и закладках пользователей. Он включает:
+- Генерацию рекомендаций с использованием моделей ALS (Alternating Least Squares) и LightFM.
+- Поддержку инкрементального и полного обучения моделей.
+- Хранение и мониторинг метрик качества (Precision@3, Recall@3) и производительности (время запросов, обучения).
+- Интеграцию с внешними сервисами (например, `url_movies_search` для получения топ-фильмов по жанрам).
 
-#### Общая архитектура
-Проект представляет собой микросервисную систему рекомендаций фильмов, реализованную на базе FastAPI с использованием MongoDB для хранения данных, MinIO для хранения моделей, Redis для очередей задач и метаданных, RQ для асинхронной обработки, и RQ Scheduler для планирования задач. Основной сервис (`recommendation_service`) управляет обучением моделей машинного обучения (ALS и LightFM), генерацией персонализированных рекомендаций и периодическим обновлением данных. Все компоненты работают в контейнерах, настроенных через `docker-compose.yml`.
+#### Основные функции
+1. **Эндпоинты API**:
+   - `GET /api/recommend/v1/recommendations/genres_top`: Возвращает топ-фильмы по любимым жанрам пользователя.
+   - `GET /api/recommend/v1/recommendations/{user_id}`: Возвращает персонализированные рекомендации для пользователя.
+   - `POST /api/recommend/v1/feedback/{session_id}`: Принимает обратную связь о рекомендациях (liked/unliked).
+2. **Обучение моделей**:
+   - Полное обучение на всех данных (`train`).
+   - Инкрементальное обучение на новых взаимодействиях (`partial_train`).
+3. **Мониторинг**:
+   - Метрики HTTP-запросов (количество, задержка).
+   - Метрики качества рекомендаций (Precision@3, Recall@3).
+   - Метрики обучения (время, размер матрицы).
+4. **Генерация тестовых данных**:
+   - Создание пользователей, фильмов, просмотров, рекомендаций и отзывов для тестирования.
 
-#### Компоненты системы
-1. **FastAPI (recommendation_service)**:
-   - **Роль**: Центральный веб-сервис, предоставляющий API для получения рекомендаций и добавления данных, а также управляющий жизненным циклом приложения.
-   - **Файлы**:
-     - `main.py`: Точка входа, настройка жизненного цикла (`lifespan`), маршруты API, запуск планировщика.
-     - `api/v1/genres.py` Эндпоинты API (`/favorites/{user_id}`).
-     - `api/v1/recommend.py`: Эндпоинты API (`/genres_top/{user_id}`,`/recommendations/{user_id}`, `/feedback/{session_id}`).
-     - `ml/recommendation_model.py`: Логика моделей (ALS и LightFM), обучение и рекомендации.
-     - `workers/tasks.py`: Фоновые задачи (полное и частичное обучение).
-     - `scheduler.py`: Планирование задач через RQ Scheduler.
+#### Технологический стек
+- **Язык**: Python 3.12
+- **Фреймворк**: FastAPI
+- **Базы данных**:
+  - MongoDB (хранение данных о пользователях, фильмах, взаимодействиях).
+  - Redis (кэширование рекомендаций).
+- **Хранилище моделей**: MinIO
+- **Очереди задач**: RQ (Redis Queue)
+- **Модели ML**: Implicit (ALS), LightFM
+- **Мониторинг**: Prometheus, Grafana
+- **Контейнеризация**: Docker, Docker Compose
+
+---
+
+### Архитектура и взаимодействие сервисов
+
+#### Сервисы (из `docker-compose.yml`)
+1. **`recommend`**:
+   - **Описание**: Основной сервис FastAPI, предоставляющий REST API.
+   - **Порты**: 
+     - 8084 (API).
+     - 8001 (Prometheus метрики HTTP и моделей).
+   - **Зависимости**: Redis, MongoDB, MinIO.
    - **Функции**:
-     - При старте проверяет наличие данных в `watched_movies` и моделей в MinIO, запускает обучение, если нужно.
-     - Обрабатывает запросы на рекомендации и добавление просмотров.
-     - Запускает планировщик для периодического обучения.
+     - Обслуживает эндпоинты `/genres_top`, `/recommendations/{user_id}`, `/feedback/{session_id}`.
+     - Инициализирует обучение моделей при старте через `lifespan` в `main.py`.
+     - Использует `recommendation_model.py` для генерации рекомендаций.
+   - **Метрики**: `http_requests_total`, `http_request_latency_seconds`, `recommendation_duration_seconds`, `popular_recommendations_total`, `model_loaded_status`.
 
-2. **MongoDB**:
-   - **Роль**: Хранилище данных о пользователях, фильмах и взаимодействиях.
+2. **`rq_worker`**:
+   - **Описание**: Фоновый обработчик задач RQ для обучения моделей.
+   - **Зависимости**: Redis, MinIO.
+   - **Функции**:
+     - Выполняет задачи `train_model` из `workers/tasks.py`, добавленные через RQ.
+     - Обновляет модели в MinIO после обучения.
+
+3. **`rq_scheduler`**:
+   - **Описание**: Планировщик задач для периодического обучения.
+   - **Зависимости**: Redis, MinIO.
+   - **Функции**:
+     - Запускает `scheduler.py` для периодического вызова `partial_train` (например, раз в 15 минут).
+
+4. **`metrics`**:
+   - **Описание**: Сервис для вычисления метрик качества рекомендаций.
+   - **Порт**: 8002 (Prometheus метрики).
+   - **Зависимости**: MongoDB.
+   - **Функции**:
+     - Выполняет `evaluate_metrics.py`, вычисляя Precision@3 и Recall@3 каждые 3600 секунд.
+     - Экспортирует метрики: `als_precision_at_3`, `lightfm_recall_at_3`, и т.д.
+
+5. **`minio`**:
+   - **Описание**: Хранилище объектов для моделей ML.
+   - **Порты**: 9000 (API), 9001 (Console).
+   - **Функции**:
+     - Хранит файлы `als_model.pkl` и `lightfm_model.pkl`.
+     - Используется `recommendation_model.py` для загрузки/сохранения моделей.
+
+6. **`redis`**:
+   - **Описание**: Кэш и очередь задач.
+   - **Порт**: 6379.
+   - **Функции**:
+     - Кэширует рекомендации в `recommend.py` (TTL 3600 секунд).
+     - Хранит задачи RQ для `rq_worker` и `rq_scheduler`.
+
+7. **`mongodb`**:
+   - **Описание**: Основная база данных.
+   - **Порт**: 27017.
    - **Коллекции**:
      - `users`: Пользователи (`_id`, `username`).
-     - `movies`: Фильмы (`_id`, `genres`, `rating`, `creation_date`).
+     - `movies`: Фильмы (`_id`, `title`, `genres`, `rating`, `creation_date`).
      - `watched_movies`: Просмотры (`user_id`, `movie_id`, `complete`, `timestamp`).
-     - `reviews`: Отзывы (`user_id`, `movie_id`, `content`, `publication_date`,`additional_data`,`likes`,`dislikes`).
-     - `likes`: Оценки (`user_id`, `movie_id`, `rating`, `timestamp`).
+     - `likes`: Лайки (`user_id`, `movie_id`, `rating`, `timestamp`).
      - `bookmarks`: Закладки (`user_id`, `movie_id`, `timestamp`).
+     - `reviews`: Отзывы (`user_id`, `movie_id`, `content`, `publication_date`,`additional_data`,`likes`,`dislikes`).
+     - `favourite_genres`: Любимые жанры (`user_id`, `genres`, `timestamp`).
+     - `recommendation_logs`: Логи рекомендаций (`user_id`, `session_id`, `source`, `recommendations`, `timestamp`).
+     - `feedback`: Отзывы (`user_id`, `session_id`, `movie_id`, `liked`, `timestamp`).
+   - **Функции**: Хранит данные для обучения моделей и вычисления метрик.
 
-   - **Взаимодействие**: FastAPI использует `motor` для асинхронных запросов.
-
-3. **MinIO**:
-   - **Роль**: Хранилище обученных моделей в формате pickle.
-   - **Объекты**:
-     - `als_model.pkl`: Модель ALS с матрицей и метаинформацией.
-     - `lightfm_model.pkl`: Модель LightFM с матрицей и признаками.
-   - **Взаимодействие**: `recommendation_model.py` загружает и сохраняет модели через MinIO SDK.
-
-4. **Redis**:
-   - **Роль**: Хранит очереди задач (RQ), метаданные (`last_train_time`) и управляет планировщиком (RQ Scheduler).
-   - **Взаимодействие**: Используется RQ Worker, Scheduler и FastAPI для координации задач.
-
-5. **RQ Worker**:
-   - **Роль**: Выполнение фоновых задач (обучение моделей).
-   - **Файл**: `workers/tasks.py`.
+8. **`prometheus`**:
+   - **Описание**: Сервис мониторинга.
+   - **Порт**: 9090.
    - **Функции**:
-     - `train_model_async`: Полное или частичное обучение моделей с параметрами `partial` и `train_als`.
+     - Собирает метрики с `recommend:8001` и `metrics:8002` каждые 15 секунд.
+     - Конфигурация: `prometheus.yml`.
 
-6. **RQ Scheduler**:
-   - **Роль**: Планирование периодических задач.
-   - **Файл**: `scheduler.py`.
-   - **Задачи**:
-     - Полное обучение (`train_model`, `partial=False`, `train_als=True`) — каждый день в 00:00.
-     - Частичное обучение (`train_model`, `partial=True`, `train_als=False`) — каждые 15 минут.
-     - Обновление рекомендаций (`update_all_recommendations`) — каждый день в 00:30.
-
-7. **Генерация данных (опционально)**:
-   - **Файл**: `ml/generate_mongo_data.py`.
-   - **Роль**: Заполнение MongoDB тестовыми данными.
-
----
+9. **`grafana`**:
+   - **Описание**: Визуализация метрик.
+   - **Порт**: 3000.
+   - **Функции**:
+     - Отображает дашборды с метриками HTTP, обучения, качества рекомендаций.
 
 #### Взаимодействие сервисов
-1. **Запуск системы**:
-   - Docker Compose поднимает контейнеры: `fastapi`, `mongo`, `minio`, `redis`, `rq_worker`, и запускает `scheduler.py` в отдельном процессе.
-   - `main.py` в `fastapi` выполняет `lifespan`:
-     - Проверяет наличие записей в `watched_movies` (MongoDB).
-     - Проверяет загрузку моделей из MinIO (`als_loaded`, `lightfm_loaded`).
-     - Если данные есть и модели отсутствуют, ставит задачу `train_model(partial=False, train_als=True)` в очередь Redis (RQ).
-     - Запускает планировщик (`scheduler.py`) для периодических задач.
+1. **Старт системы**:
+   - `recommend` запускается, проверяет наличие данных в `watched_movies` через MongoDB.
+   - Если данные есть и модели не загружены из MinIO, добавляет задачу `train_model` в RQ (Redis).
+   - `rq_worker` выполняет задачу, обучает модели и сохраняет их в MinIO.
+   - `rq_scheduler` периодически запускает `partial_train` через `scheduler.py`.
 
-2. **Обучение моделей**:
-   - **Периодическое обучение**:
-     - `scheduler.py` через RQ Scheduler:
-       - Каждые 15 минут: `train_model(partial=True, train_als=False)` → `train_model_async` проверяет новые взаимодействия в MongoDB с `timestamp > last_train_time`. Если есть, вызывает `partial_train` (только LightFM).
-       - Ежедневно в 00:00: `train_model(partial=False, train_als=True)` → `train_model_async` вызывает полное обучение `train` (ALS и LightFM).
-     - Результаты сохраняются в MinIO, `last_train_time` обновляется в Redis.
-   - **RQ Worker**:
-     - Обрабатывает задачи из очереди Redis, выполняя `train_model_async`.
+2. **Запрос рекомендаций**:
+   - Клиент отправляет запрос на `GET /recommendations/{user_id}`.
+   - `recommend` проверяет кэш в Redis, если нет — вызывает `recommendation_model.get_recommendations`.
+   - `recommendation_model` загружает модели из MinIO (если не загружены) и использует данные из MongoDB для рекомендаций.
+   - Результат кэшируется в Redis и записывается в `recommendation_logs`.
+
+3. **Обратная связь**:
+   - Клиент отправляет `POST /feedback/{session_id}`.
+   - `recommend` сохраняет отзыв в `feedback` (MongoDB).
+
+4. **Мониторинг**:
+   - `recommend` экспортирует метрики HTTP и моделей на порт 8001.
+   - `metrics` вычисляет Precision@3 и Recall@3 из `recommendation_logs` и `feedback`, экспортирует на 8002.
+   - Prometheus собирает метрики с обоих портов.
+   - Grafana визуализирует данные через дашборд.
+
+5. **Генерация данных**:
+   - `generate_mongo_data.py` заполняет MongoDB тестовыми данными для всех коллекций.
+
+---
+
+### Пример использования
+
+1. **Запуск системы**:
+   ```bash
+   docker-compose up --build -d
+   ```
+
+2. **Генерация данных**:
+   ```bash
+   docker-compose exec recommend python ml/generate_mongo_data.py
+   ```
 
 3. **Получение рекомендаций**:
+   ```bash
+   curl -H "X-Request-Id: test-id" -H "Authorization: Bearer <your-jwt-token>" http://localhost:8084/api/recommend/v1/recommendations/<user_uuid>
+   ```
+   - Ответ:
+     ```json
+     {
+       "source": "als",
+       "recommendations": ["movie_uuid1", "movie_uuid2", "movie_uuid3"],
+       "session_id": "session_uuid"
+     }
+     ```
 
-   - Клиент отправляет `GET /genres_top/{user_id}`: - рекомедации по любимым жанрам без использования модели
-   - Клиент отправляет `GET /recommendations/{user_id}`.
-   - `recommend.py` валидирует `user_id` и вызывает `recommendation_model.get_recommendations`:
-     - Запрашивает просмотры пользователя из MongoDB.
-     - Использует модели из MinIO (ALS или LightFM) для генерации рекомендаций.
-     - Подмешивает новые фильмы (по `timestamp` за последний месяц) из MongoDB.
-     - Возвращает результат.
+4. **Отправка отзыва**:
+   ```bash
+   curl -X POST -H "X-Request-Id: test-id" -H "Authorization: Bearer <your-jwt-token>" -H "Content-Type: application/json" http://localhost:8084/api/recommend/v1/feedback/<session_uuid> -d '{"movie_id": "movie_uuid1", "liked": true}'
+   ```
 
-4. **Добавление данных**:
-   - Клиент отправляет `POST /genres/{user_id}`: с данными по любимым жанрам.
-5. **Обновление рекомендаций**:
-   - `scheduler.py` запускает `update_all_recommendations` в 00:30 ежедневно (предположительно обновляет кэш рекомендаций для всех пользователей).
+5. **Проверка топ-фильмов по жанрам**:
+   ```bash
+   curl -H "X-Request-Id: test-id" -H "Authorization: Bearer <your-jwt-token>" http://localhost:8084/api/recommend/v1/recommendations/genres_top?limit=6
+   ```
 
----
-
-#### Последовательность процессов
-1. **Инициализация**:
-   - FastAPI стартует → Проверка MongoDB → Проверка MinIO → Постановка задачи в Redis (если нужно) → Запуск RQ Scheduler.
-2. **Обучение**:
-   - RQ Scheduler → Redis (очередь) → RQ Worker → MongoDB (данные) → Обновление моделей → MinIO (сохранение).
-   - Частичное: Каждые 15 минут (LightFM).
-   - Полное: Ежедневно в 00:00 (ALS и LightFM).
-3. **Запрос рекомендаций**:
-   - Клиент → FastAPI → MongoDB (просмотры) → MinIO (модели) → Ответ клиенту.
-4. **Добавление данных**:
-   - Клиент → FastAPI → MongoDB (запись) → (опционально) Redis (задача на частичное обучение).
+6. **Мониторинг**:
+   - Prometheus: `http://localhost:9090`
+   - Grafana: `http://localhost:3000` (дашборд "Recommendation Service Metrics").
 
 ---
 
-### Текстовая схема (ASCII)
+### Поток данных
 ```
-+----------------+       +----------------+       +----------------+
-|    Client      |       |    FastAPI     |       |    MongoDB     |
-|  (curl, app)   |<----->| (recommendation|------>| (users, movies,|
-|                |       |   service)     |       |  interactions) |
-+----------------+       | - main.py       |       +----------------+
-                         | - recommend.py  |
-                         | - recommendation_model.py|
-                         | - tasks.py      |       +----------------+
-                         |                |<----->|    MinIO       |
-                         |                |       | (models: ALS,  |
-                         +----------------+       |  LightFM)      |
-                         |                |       +----------------+
-                         |                |
-                         |                |       +----------------+
-                         |   Scheduler    |<----->|    Redis       |
-                         |  (scheduler.py)|       | (RQ queue,     |
-                         | - Every 15m:   |       |  last_train_time)|
-                         |   partial_train |       +----------------+
-                         | - Daily 00:00: |
-                         |   full_train   |
-                         | - Daily 00:30: |       +----------------+
-                         |   update_recs  |------>|    RQ Worker   |
-                         |                |       | (tasks.py)     |
-                         +----------------+       +----------------+
+Клиент → [FastAPI: recommend:8084] → [Redis: кэш] → [MongoDB: данные] → [MinIO: модели]
+       ↳ [RQ Worker: обучение] ← [Redis: очередь] ← [RQ Scheduler: расписание]
+       ↳ [Prometheus: метрики] ← [recommend:8001, metrics:8002] → [Grafana: дашборд]
 ```
-
-#### Описание схемы
-- **Client**: Внешний запросчик.
-- **FastAPI**: Центральный сервис, управляет API, обучением и планированием.
-- **MongoDB**: Хранит данные.
-- **MinIO**: Хранит модели.
-- **Redis**: Управляет очередями и метаданными.
-- **RQ Scheduler**: Планирует задачи (полное, частичное обучение, обновление рекомендаций).
-- **RQ Worker**: Выполняет задачи из очереди.
-
----
-
-### Ключевые особенности
-1. **Частичное обновление**:
-   - Выполняется каждые 15 минут через `train_model(partial=True, train_als=False)` для LightFM, если есть новые взаимодействия.
-2. **Полное обучение**:
-   - Выполняется ежедневно в 00:00 через `train_model(partial=False, train_als=True)` для ALS и LightFM.
-3. **Гибкость**:
-   - Параметры `partial` и `train_als` позволяют управлять типом обучения.
-4. **Автоматизация**:
-   - Планировщик (`scheduler.py`) обеспечивает регулярное обновление без ручного вмешательства.
-
----
-
-### Возможные улучшения
-1. **Триггер по событию**:
-   - Добавить вызов `train_model(partial=True, train_als=False)` в `POST /watched` для немедленного обновления.
-2. **Кэширование**:
-   - Сохранять рекомендации в Redis после `update_all_recommendations`.
-3. **Мониторинг**:
-   - Интеграция с Prometheus/Grafana для отслеживания времени обучения и производительности.
 
 ---
 
 ### Итог
-Система теперь полностью автоматизирована:
-- **FastAPI** управляет API и жизненным циклом.
-- **MongoDB** хранит данные.
-- **MinIO** сохраняет модели.
-- **Redis и RQ** обеспечивают асинхронное выполнение задач.
-- **RQ Scheduler** запускает частичное обучение каждые 15 минут, полное — раз в день, и обновление рекомендаций.
-
-Приятного использования!
+Проект представляет собой микросервисную архитектуру для рекомендаций фильмов с полной автоматизацией обучения, мониторинга и генерации данных. Все сервисы взаимодействуют через чётко определённые интерфейсы (API, очереди, метрики), обеспечивая масштабируемость и наблюдаемость. Если нужно добавить больше деталей или уточнить конкретный аспект, дайте знать! Как вам описание?

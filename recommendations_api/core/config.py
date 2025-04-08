@@ -11,12 +11,12 @@ BASE_DIR = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 class Settings(BaseSettings):
     # Основные настройки проекта
     project_name: str = "recommendation_api"
-    
+
     # Настройки базы данных
     MONGO_URL: str = Field("mongodb://mongodb:27017", env="MONGO_URL")
     DATABASE_NAME: str = Field("cinema", env="DATABASE_NAME")
     RECOMMENDATIONS_LIMITS: int = 3
-    
+
     url_movies_search: str = "http://movie_api:8000/api/v1/films/"
 
     # Настройки Redis
@@ -31,8 +31,8 @@ class Settings(BaseSettings):
 
     # Настройки JWT
     secret_key: str = Field(
-        "58ea1679ffb7715b56d0d3416850e89284331fc38fcf2963f5f26577bf1fac5b", 
-        env="SECRET_KEY"
+        "58ea1679ffb7715b56d0d3416850e89284331fc38fcf2963f5f26577bf1fac5b",
+        env="SECRET_KEY",
     )
     algorithm: str = Field("HS256", env="ALGORITHM")
 

@@ -4,8 +4,8 @@ from fastapi import APIRouter, Depends, HTTPException, status
 from typing_extensions import Annotated
 
 from core.config import db
-from core.jwt import security_jwt
 from core.enum import Genre
+from core.jwt import security_jwt
 
 router = APIRouter(tags=["genres"])
 
