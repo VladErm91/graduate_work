@@ -53,37 +53,37 @@ NUM_WATCHEDFILMS = 100
 # Размер пачки для вставки
 BATCH_SIZE = 100
 
-# # Генерация фильмов
-# movies = []
-# for _ in range(NUM_MOVIES):
-#     movie = {
-#         "genres": random.choice(GENRES),
-#         "rating": round(random.uniform(1, 10), 1),
-#         "publication_date": fake.date_time(),
-#     }
-#     movies.append(movie)
-#     if len(movies) >= BATCH_SIZE:
-#         db.movies.insert_many(movies)
-#         movies = []
+# Генерация фильмов
+movies = []
+for _ in range(NUM_MOVIES):
+    movie = {
+        "genres": random.choice(GENRES),
+        "rating": round(random.uniform(1, 10), 1),
+        "publication_date": fake.date_time(),
+    }
+    movies.append(movie)
+    if len(movies) >= BATCH_SIZE:
+        db.movies.insert_many(movies)
+        movies = []
 
-# if movies:
-#     db.movies.insert_many(movies)
+if movies:
+    db.movies.insert_many(movies)
 
 
-# # Генерация пользователей
-# users = []
-# for _ in range(NUM_USERS):
-#     user = {
-#         "username": fake.user_name(),
-#         "email": fake.email(),
-#         "hashed_password": fake.password(),
-#     }
-#     users.append(user)
-#     if len(users) >= BATCH_SIZE:
-#         db.users.insert_many(users)
-#         users = []
-# if users:
-#     db.users.insert_many(users)
+# Генерация пользователей
+users = []
+for _ in range(NUM_USERS):
+    user = {
+        "username": fake.user_name(),
+        "email": fake.email(),
+        "hashed_password": fake.password(),
+    }
+    users.append(user)
+    if len(users) >= BATCH_SIZE:
+        db.users.insert_many(users)
+        users = []
+if users:
+    db.users.insert_many(users)
 
 # Генерация лайков
 likes = []

@@ -4,7 +4,6 @@ services:
 
   recommend:
     build: .
-    # container_name: recommendation_api
     restart: always
     env_file:
       - .env

@@ -137,15 +137,17 @@ async def get_base_recommendations_for_user(
 @router.get("/{user_id}", response_model=RecommendationResponse)
 async def get_recommendations(
     user: Annotated[dict, Depends(security_jwt)],
-    user_id: str,
-    model: str = Query(None, description="models like als or lightfm"),
+    # user_id: str,
+    model: str = Query(None, description="Models: ALS or LightFM"),
     redis: Redis = Depends(get_redis),
 ):
     """
     Возвращает рекомендации для пользователя.
     """
     start_time = time()
-    # user_id = user["id"]
+
+    user_id = user["id"]
+
     model_type = (
         model if model in ["als", "lightfm"] else random.choice(["als", "lightfm"])
     )
@@ -191,13 +193,13 @@ async def submit_feedback(
     liked: bool,
 ):
     """
-    Отправляет обратную связь о просмотренном фильме.
+    Отправляет обратную связь о просмотренном по рекомендации фильме.
     """
     start_time = time()
     feedback_entry = {
         "user_id": user["id"],
         "session_id": session_id,
-        "movie_id": movie_id,  # Теперь строка (UUID), без вложенного {"_id": ...}
+        "movie_id": movie_id,
         "liked": liked,
         "timestamp": datetime.now(timezone.utc),
     }

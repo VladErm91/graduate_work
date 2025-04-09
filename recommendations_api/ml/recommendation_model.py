@@ -17,7 +17,7 @@ from sklearn.preprocessing import MultiLabelBinarizer
 
 from core.config import settings
 from core.metrics import (
-    MATRIX_SIZE,  # Импортируем существующие метрики
+    MATRIX_SIZE,
     TRAIN_COUNT,
     TRAIN_DURATION,
 )
