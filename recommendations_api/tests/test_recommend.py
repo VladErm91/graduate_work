@@ -160,7 +160,7 @@ async def test_get_recommendations_cache_miss(
     Если кеш отсутствует, функция recommendation_model.get_recommendations вызывается,
     затем результат кэшируется в Redis и логируется в MongoDB.
     """
-    user_id = "user456"
+    user_id = "hashed_user_id"
     result = {
         "recommendations": ["movie3", "movie4"],
         "session_id": "sess456",
@@ -217,7 +217,7 @@ async def test_get_recommendations_invalid_model(
     то выбирается случайное значение. Поскольку random.choice замокано и возвращает "als",
     в итоге используется модель "als".
     """
-    user_id = "user789"
+    user_id = "hashed_user_id"
     result = {"recommendations": ["movieX"], "session_id": "sess789", "source": "model"}
     cache_key = f"recommendations:{user_id}:als"
 
@@ -269,7 +269,7 @@ async def test_get_recommendations_no_model_param(
     Если параметр model не передан, то выбирается случайная модель.
     Здесь random.choice замокан и возвращает "lightfm".
     """
-    user_id = "user999"
+    user_id = "hashed_user_id"
     result = {
         "recommendations": ["movieY", "movieZ"],
         "session_id": "sess999",
