@@ -1,6 +1,5 @@
 import pytest
 from fastapi.testclient import TestClient
-
 from mongo_app.app.main import app
 
 client = TestClient(app)

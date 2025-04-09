@@ -5,16 +5,15 @@ from datetime import datetime, timezone
 from time import time
 
 import httpx
-from fastapi import APIRouter, Depends, HTTPException, Query, Request
-from redis.asyncio import Redis
-from typing_extensions import Annotated
-
 from core.config import db, settings
 from core.jwt import JWTBearer, security_jwt
 from core.metrics import REQUEST_COUNT, REQUEST_LATENCY  # Импортируем метрики
 from core.redis import get_redis
+from fastapi import APIRouter, Depends, HTTPException, Query, Request
 from ml.recommendation_model import recommendation_model
+from redis.asyncio import Redis
 from schemas.schemas import RecommendationResponse
+from typing_extensions import Annotated
 
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)

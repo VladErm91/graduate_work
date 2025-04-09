@@ -2,15 +2,14 @@ import logging
 from contextlib import asynccontextmanager
 from time import time
 
-from fastapi import FastAPI, Request, status
-from fastapi.responses import ORJSONResponse
-from prometheus_client import start_http_server
-from starlette.middleware.sessions import SessionMiddleware
-
 from api.v1 import genres, recommend
 from core.config import db, settings
 from core.metrics import REQUEST_COUNT, REQUEST_LATENCY  # Импортируем метрики
+from fastapi import FastAPI, Request, status
+from fastapi.responses import ORJSONResponse
 from ml.recommendation_model import recommendation_model
+from prometheus_client import start_http_server
+from starlette.middleware.sessions import SessionMiddleware
 from workers.tasks import train_model
 
 # Логгирование

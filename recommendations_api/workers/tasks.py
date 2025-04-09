@@ -3,11 +3,10 @@ import json
 import logging
 from datetime import datetime
 
-from rq import Queue, Retry
-
 from core.config import db
 from core.redis import get_redis, get_sync_redis
 from ml.recommendation_model import recommendation_model
+from rq import Queue, Retry
 
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)

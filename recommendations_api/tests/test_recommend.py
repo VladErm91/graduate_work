@@ -1,21 +1,26 @@
-import pytest
-from fastapi import status
+import json
+from datetime import datetime
 from unittest.mock import AsyncMock, patch
+
+import pytest
+from api.v1.recommend import get_redis
+from core.config import db
+from core.jwt import security_jwt
+from fastapi import status
 from fastapi.testclient import TestClient
 from main import app
-from core.jwt import security_jwt
-from core.config import db
-import json
-from api.v1.recommend import get_redis
-from datetime import datetime
 
 client = TestClient(app)
 
 BASE_URL_AUTH = "recommend:8084/api/recommend/v1/"
 
+
 @pytest.fixture(scope="module")
 def valid_token_header():
-    return {"Authorization": "Bearer some_valid_jwt_token", "X-Request-Id": "test-request-id"}
+    return {
+        "Authorization": "Bearer some_valid_jwt_token",
+        "X-Request-Id": "test-request-id",
+    }
 
 
 @pytest.fixture(scope="module")
@@ -43,7 +48,10 @@ async def test_missing_authorization_token(jwt_get_token):
     Если токен отсутствует, эндпоинт должен вернуть 403 с соответствующим сообщением.
     """
     user_id = "user123"
-    response = client.get(BASE_URL_AUTH + f"/recommendations/genres_top/{user_id}", headers={"X-Request-Id": "test-request-id"})
+    response = client.get(
+        BASE_URL_AUTH + f"/recommendations/genres_top/{user_id}",
+        headers={"X-Request-Id": "test-request-id"},
+    )
     assert response.status_code == status.HTTP_403_FORBIDDEN
     assert response.json()["detail"] == "Authorization token is missing"
 
@@ -55,23 +63,29 @@ async def test_missing_authorization_token(jwt_get_token):
 @patch("core.jwt.JWTBearer.get_token_from_request", return_value="some_valid_jwt_token")
 @patch.object(db, "favourite_genres")
 @patch("httpx.AsyncClient.get")
-async def test_error_fetching_movies_favorite_genres(get_mock, favourite_genres_mock, jwt_get_token, valid_token_header):
+async def test_error_fetching_movies_favorite_genres(
+    get_mock, favourite_genres_mock, jwt_get_token, valid_token_header
+):
     """
     Если один из запросов по любимым жанрам возвращает статус != 200,
     генерируется HTTPException с сообщением "Error fetching movies".
     """
     user_id = "user123"
-    favourite_genres_mock.find_one = AsyncMock(return_value={"genres": ["Action", "Comedy"]})
+    favourite_genres_mock.find_one = AsyncMock(
+        return_value={"genres": ["Action", "Comedy"]}
+    )
 
     error_response_mock = AsyncMock()
     error_response_mock.status_code = 500
     error_response_mock.json.return_value = {}
     get_mock.side_effect = [error_response_mock]
 
-    response = client.get(BASE_URL_AUTH + f"/recommendations/genres_top/{user_id}", headers=valid_token_header)
+    response = client.get(
+        BASE_URL_AUTH + f"/recommendations/genres_top/{user_id}",
+        headers=valid_token_header,
+    )
     assert response.status_code == 500
     assert response.json()["detail"] == "Error fetching movies"
-
 
 
 # # ============================================================================
@@ -81,7 +95,9 @@ async def test_error_fetching_movies_favorite_genres(get_mock, favourite_genres_
 @patch("core.jwt.JWTBearer.get_token_from_request", return_value="some_valid_jwt_token")
 @patch.object(db, "favourite_genres")
 @patch("httpx.AsyncClient.get")
-async def test_error_fetching_movies_no_favorite(get_mock, favourite_genres_mock, jwt_get_token, valid_token_header):
+async def test_error_fetching_movies_no_favorite(
+    get_mock, favourite_genres_mock, jwt_get_token, valid_token_header
+):
     """
     Если пользователь не имеет любимых жанров, а запрос к movie API завершается ошибкой,
     генерируется HTTPException.
@@ -94,7 +110,10 @@ async def test_error_fetching_movies_no_favorite(get_mock, favourite_genres_mock
     error_response_mock.json.return_value = {}
     get_mock.return_value = error_response_mock
 
-    response = client.get(BASE_URL_AUTH + f"/recommendations/genres_top/{user_id}", headers=valid_token_header)
+    response = client.get(
+        BASE_URL_AUTH + f"/recommendations/genres_top/{user_id}",
+        headers=valid_token_header,
+    )
     assert response.status_code == 404
     assert response.json()["detail"] == "Error fetching movies"
 
@@ -103,6 +122,7 @@ async def test_error_fetching_movies_no_favorite(get_mock, favourite_genres_mock
 # get_recommendations
 ###########################################
 
+
 # ==================================================================
 # 1. Cache hit
 # ==================================================================
@@ -110,7 +130,7 @@ async def test_error_fetching_movies_no_favorite(get_mock, favourite_genres_mock
 @patch("core.jwt.security_jwt")
 @pytest.mark.asyncio
 async def test_get_recommendations_cache_hit(
-        mock_security, mock_get_recommendations, valid_token_header
+    mock_security, mock_get_recommendations, valid_token_header
 ):
     """
     Если данные уже закэшированы в Redis, эндпоинт должен вернуть их сразу
@@ -120,7 +140,7 @@ async def test_get_recommendations_cache_hit(
     result = {
         "recommendations": ["movie1", "movie2"],
         "session_id": "sess123",
-        "source": "cache"
+        "source": "cache",
     }
     cache_key = f"recommendations:{user_id}:als"
 
@@ -135,7 +155,7 @@ async def test_get_recommendations_cache_hit(
 
     response = client.get(
         BASE_URL_AUTH + f"/recommendations/recommendations/{user_id}?model=als",
-        headers=valid_token_header
+        headers=valid_token_header,
     )
     assert response.status_code == status.HTTP_200_OK
     assert response.json() == result
@@ -164,7 +184,7 @@ async def test_get_recommendations_cache_miss(
     result = {
         "recommendations": ["movie3", "movie4"],
         "session_id": "sess456",
-        "source": "model"
+        "source": "model",
     }
     cache_key = f"recommendations:{user_id}:lightfm"
 
@@ -184,7 +204,7 @@ async def test_get_recommendations_cache_miss(
 
     response = client.get(
         BASE_URL_AUTH + "/recommendations/recommendations/{user_id}?model=lightfm",
-        headers=valid_token_header
+        headers=valid_token_header,
     )
     assert response.status_code == status.HTTP_200_OK
 
@@ -211,7 +231,7 @@ async def test_get_recommendations_invalid_model(
     mock_get_recommendations,
     mock_db,
     mock_random_choice,
-    valid_token_header
+    valid_token_header,
 ):
     """
     Если передан недопустимый параметр model (например, "invalid"),
@@ -219,11 +239,7 @@ async def test_get_recommendations_invalid_model(
     в итоге используется модель "als".
     """
     user_id = "user789"
-    result = {
-        "recommendations": ["movieX"],
-        "session_id": "sess789",
-        "source": "model"
-    }
+    result = {"recommendations": ["movieX"], "session_id": "sess789", "source": "model"}
     cache_key = f"recommendations:{user_id}:als"
 
     fake_redis = AsyncMock()
@@ -241,7 +257,7 @@ async def test_get_recommendations_invalid_model(
 
     response = client.get(
         BASE_URL_AUTH + "/recommendations/recommendations/{user_id}?model=invalid",
-        headers=valid_token_header
+        headers=valid_token_header,
     )
     assert response.status_code == status.HTTP_200_OK
 
@@ -268,7 +284,7 @@ async def test_get_recommendations_no_model_param(
     mock_get_recommendations,
     mock_db,
     mock_random_choice,
-    valid_token_header
+    valid_token_header,
 ):
     """
     Если параметр model не передан, то выбирается случайная модель.
@@ -278,7 +294,7 @@ async def test_get_recommendations_no_model_param(
     result = {
         "recommendations": ["movieY", "movieZ"],
         "session_id": "sess999",
-        "source": "model"
+        "source": "model",
     }
     cache_key = f"recommendations:{user_id}:lightfm"
 
@@ -295,7 +311,7 @@ async def test_get_recommendations_no_model_param(
 
     response = client.get(
         BASE_URL_AUTH + f"/recommendations/recommendations/{user_id}",
-        headers=valid_token_header
+        headers=valid_token_header,
     )
     assert response.status_code == status.HTTP_200_OK
     fake_redis.get.assert_awaited_with(cache_key)
@@ -304,9 +320,11 @@ async def test_get_recommendations_no_model_param(
 
     app.dependency_overrides.pop(get_redis, None)
 
+
 ###########################################
 # submit_feedback
 ###########################################
+
 
 # --------------------------------------------
 # 1. Успешная отправка обратной связи
@@ -330,7 +348,8 @@ async def test_submit_feedback_success(mock_security, mock_db, valid_token_heade
     mock_db.__getitem__.return_value = fake_feedback_collection
 
     response = client.post(
-        BASE_URL_AUTH + "/recommendations/recommendations/feedback/{session_id}?movie_id={movie_id}&liked={str(liked).lower()}",
+        BASE_URL_AUTH
+        + "/recommendations/recommendations/feedback/{session_id}?movie_id={movie_id}&liked={str(liked).lower()}",
         headers=valid_token_header,
     )
 
@@ -343,7 +362,7 @@ async def test_submit_feedback_success(mock_security, mock_db, valid_token_heade
     inserted_data = args[0]
 
     assert inserted_data["session_id"] == session_id
-    assert inserted_data["movie_id"] ==  movie_id
+    assert inserted_data["movie_id"] == movie_id
     assert inserted_data["liked"] is liked
     assert "timestamp" in inserted_data
     assert isinstance(inserted_data["timestamp"], datetime)
@@ -362,5 +381,8 @@ async def test_submit_feedback_missing_parameters(mock_security, valid_token_hea
     session_id = "sess_002"
     mock_security.return_value = {"id": "hashed_user_id", "username": "test_user"}
 
-    response = client.post(BASE_URL_AUTH + "/recommendations/recommendations/feedback/{session_id}", headers=valid_token_header)
+    response = client.post(
+        BASE_URL_AUTH + "/recommendations/recommendations/feedback/{session_id}",
+        headers=valid_token_header,
+    )
     assert response.status_code == 422
