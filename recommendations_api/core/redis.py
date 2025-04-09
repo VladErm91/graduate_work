@@ -1,8 +1,9 @@
 # recommendation_service/core/redis.py
 
-from core.config import settings
 from redis import Redis as SyncRedis
 from redis.asyncio import Redis as AsyncRedis
+
+from core.config import settings
 
 async_redis = None
 sync_redis = None

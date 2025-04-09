@@ -8,14 +8,15 @@ from time import time
 
 import implicit
 import numpy as np
-from core.config import settings
-from core.metrics import MATRIX_SIZE, TRAIN_COUNT, TRAIN_DURATION
 from lightfm import LightFM
 from minio import Minio
 from motor.motor_asyncio import AsyncIOMotorDatabase
 from prometheus_client import Counter, Gauge, Histogram
 from scipy.sparse import coo_matrix, csr_matrix
 from sklearn.preprocessing import MultiLabelBinarizer
+
+from core.config import settings
+from core.metrics import MATRIX_SIZE, TRAIN_COUNT, TRAIN_DURATION
 
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)

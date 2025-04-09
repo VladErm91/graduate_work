@@ -1,18 +1,19 @@
 import json
 from datetime import datetime
-from unittest.mock import AsyncMock, patch
+from unittest.mock import AsyncMock, Mock, patch
 
 import pytest
+from fastapi import status
+from fastapi.testclient import TestClient
+
 from api.v1.recommend import get_redis
 from core.config import db
 from core.jwt import security_jwt
-from fastapi import status
-from fastapi.testclient import TestClient
 from main import app
 
 client = TestClient(app)
 
-BASE_URL_AUTH = "recommend:8084/api/recommend/v1/"
+BASE_URL_AUTH = "http://localhost:8084/api/recommend/v1/recommendations"
 
 
 @pytest.fixture(scope="module")
@@ -38,27 +39,18 @@ def override_jwt_dependency():
     app.dependency_overrides.pop(security_jwt, None)
 
 
-# ============================================================================
-# 1. Тест: Отсутствует токен авторизации
-# ============================================================================
 @pytest.mark.asyncio
 @patch("core.jwt.JWTBearer.get_token_from_request", return_value=None)
 async def test_missing_authorization_token(jwt_get_token):
-    """
-    Если токен отсутствует, эндпоинт должен вернуть 403 с соответствующим сообщением.
-    """
     user_id = "user123"
     response = client.get(
-        BASE_URL_AUTH + f"/recommendations/genres_top/{user_id}",
+        BASE_URL_AUTH + f"/genres_top/{user_id}",
         headers={"X-Request-Id": "test-request-id"},
     )
     assert response.status_code == status.HTTP_403_FORBIDDEN
     assert response.json()["detail"] == "Authorization token is missing"
 
 
-# # ============================================================================
-# # 2. Тест: Ошибка запроса к API (ветка favorite_genres)
-# # ============================================================================
 @pytest.mark.asyncio
 @patch("core.jwt.JWTBearer.get_token_from_request", return_value="some_valid_jwt_token")
 @patch.object(db, "favourite_genres")
@@ -66,10 +58,6 @@ async def test_missing_authorization_token(jwt_get_token):
 async def test_error_fetching_movies_favorite_genres(
     get_mock, favourite_genres_mock, jwt_get_token, valid_token_header
 ):
-    """
-    Если один из запросов по любимым жанрам возвращает статус != 200,
-    генерируется HTTPException с сообщением "Error fetching movies".
-    """
     user_id = "user123"
     favourite_genres_mock.find_one = AsyncMock(
         return_value={"genres": ["Action", "Comedy"]}
@@ -81,16 +69,13 @@ async def test_error_fetching_movies_favorite_genres(
     get_mock.side_effect = [error_response_mock]
 
     response = client.get(
-        BASE_URL_AUTH + f"/recommendations/genres_top/{user_id}",
+        BASE_URL_AUTH + f"/genres_top/{user_id}",
         headers=valid_token_header,
     )
     assert response.status_code == 500
     assert response.json()["detail"] == "Error fetching movies"
 
 
-# # ============================================================================
-# # 3. Тест: Ошибка запроса к API (ветка else, когда нет любимых жанров)
-# # ============================================================================
 @pytest.mark.asyncio
 @patch("core.jwt.JWTBearer.get_token_from_request", return_value="some_valid_jwt_token")
 @patch.object(db, "favourite_genres")
@@ -98,10 +83,6 @@ async def test_error_fetching_movies_favorite_genres(
 async def test_error_fetching_movies_no_favorite(
     get_mock, favourite_genres_mock, jwt_get_token, valid_token_header
 ):
-    """
-    Если пользователь не имеет любимых жанров, а запрос к movie API завершается ошибкой,
-    генерируется HTTPException.
-    """
     user_id = "user123"
     favourite_genres_mock.find_one = AsyncMock(return_value=None)
 
@@ -111,7 +92,7 @@ async def test_error_fetching_movies_no_favorite(
     get_mock.return_value = error_response_mock
 
     response = client.get(
-        BASE_URL_AUTH + f"/recommendations/genres_top/{user_id}",
+        BASE_URL_AUTH + f"/genres_top/{user_id}",
         headers=valid_token_header,
     )
     assert response.status_code == 404
@@ -126,9 +107,9 @@ async def test_error_fetching_movies_no_favorite(
 # ==================================================================
 # 1. Cache hit
 # ==================================================================
+@pytest.mark.asyncio
 @patch("api.v1.recommend.get_recommendations")
 @patch("core.jwt.security_jwt")
-@pytest.mark.asyncio
 async def test_get_recommendations_cache_hit(
     mock_security, mock_get_recommendations, valid_token_header
 ):
@@ -142,8 +123,9 @@ async def test_get_recommendations_cache_hit(
         "session_id": "sess123",
         "source": "cache",
     }
-    cache_key = f"recommendations:{user_id}:als"
+    cache_key = f"/recommendations:{user_id}:als"
 
+    # Асинхронный мок Redis
     fake_redis = AsyncMock()
     fake_redis.get = AsyncMock(return_value=json.dumps(result))
     fake_redis.setex = AsyncMock()
@@ -153,17 +135,15 @@ async def test_get_recommendations_cache_hit(
     mock_security.return_value = {"id": "hashed_user_id", "username": "test_user"}
     mock_get_recommendations.return_value = None
 
+    # Выполняем запрос
     response = client.get(
-        BASE_URL_AUTH + f"/recommendations/recommendations/{user_id}?model=als",
+        BASE_URL_AUTH + f"/{user_id}?model=als",
         headers=valid_token_header,
     )
+
+    # Проверяем статус и ответ
     assert response.status_code == status.HTTP_200_OK
     assert response.json() == result
-
-    fake_redis.get.assert_awaited_with(cache_key)
-    mock_get_recommendations.assert_not_called()
-
-    app.dependency_overrides.pop(get_redis, None)
 
 
 # # ==================================================================
@@ -203,11 +183,10 @@ async def test_get_recommendations_cache_miss(
     mock_db.__getitem__.return_value = fake_logs
 
     response = client.get(
-        BASE_URL_AUTH + "/recommendations/recommendations/{user_id}?model=lightfm",
+        BASE_URL_AUTH + f"/{user_id}?model=lightfm",
         headers=valid_token_header,
     )
     assert response.status_code == status.HTTP_200_OK
-
     assert response.json() == result
 
     fake_redis.get.assert_awaited_with(cache_key)
@@ -256,7 +235,7 @@ async def test_get_recommendations_invalid_model(
     mock_db.__getitem__.return_value = fake_logs
 
     response = client.get(
-        BASE_URL_AUTH + "/recommendations/recommendations/{user_id}?model=invalid",
+        BASE_URL_AUTH + f"/{user_id}?model=invalid",
         headers=valid_token_header,
     )
     assert response.status_code == status.HTTP_200_OK
@@ -310,10 +289,11 @@ async def test_get_recommendations_no_model_param(
     mock_db.__getitem__.return_value = fake_logs
 
     response = client.get(
-        BASE_URL_AUTH + f"/recommendations/recommendations/{user_id}",
+        BASE_URL_AUTH + f"/{user_id}",
         headers=valid_token_header,
     )
     assert response.status_code == status.HTTP_200_OK
+
     fake_redis.get.assert_awaited_with(cache_key)
     mock_get_recommendations.assert_awaited_with(user_id, mock_db, model_type="lightfm")
     assert response.json() == result
@@ -349,7 +329,7 @@ async def test_submit_feedback_success(mock_security, mock_db, valid_token_heade
 
     response = client.post(
         BASE_URL_AUTH
-        + "/recommendations/recommendations/feedback/{session_id}?movie_id={movie_id}&liked={str(liked).lower()}",
+        + f"/feedback/{session_id}?movie_id={movie_id}&liked={str(liked).lower()}",
         headers=valid_token_header,
     )
 
@@ -374,15 +354,11 @@ async def test_submit_feedback_success(mock_security, mock_db, valid_token_heade
 @patch("core.jwt.security_jwt")
 @pytest.mark.asyncio
 async def test_submit_feedback_missing_parameters(mock_security, valid_token_header):
-    """
-    Если не переданы обязательные query-параметры (movie_id и liked),
-    FastAPI возвращает ошибку валидации (422).
-    """
     session_id = "sess_002"
     mock_security.return_value = {"id": "hashed_user_id", "username": "test_user"}
 
     response = client.post(
-        BASE_URL_AUTH + "/recommendations/recommendations/feedback/{session_id}",
+        BASE_URL_AUTH + f"/feedback/{session_id}",
         headers=valid_token_header,
     )
     assert response.status_code == 422

@@ -1,8 +1,9 @@
 import asyncio
 import logging
 
-from core.config import db
 from prometheus_client import Gauge, start_http_server
+
+from core.config import db
 
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)

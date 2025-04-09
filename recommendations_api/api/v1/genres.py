@@ -1,10 +1,11 @@
 from typing import List
 
+from fastapi import APIRouter, Depends, HTTPException, status
+from typing_extensions import Annotated
+
 from core.config import db
 from core.enum import Genre
 from core.jwt import security_jwt
-from fastapi import APIRouter, Depends, HTTPException, status
-from typing_extensions import Annotated
 
 router = APIRouter(tags=["genres"])
 

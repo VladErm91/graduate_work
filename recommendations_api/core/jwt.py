@@ -2,10 +2,11 @@ import http
 import time
 from typing import Optional
 
-from core.config import settings
 from fastapi import HTTPException, Request
 from fastapi.security import HTTPAuthorizationCredentials, HTTPBearer
 from jose import jwt
+
+from core.config import settings
 
 
 def decode_token(token: str) -> Optional[dict]:
