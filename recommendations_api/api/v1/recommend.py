@@ -104,7 +104,7 @@ async def get_base_recommendations_for_user(
                 )
             all_movies = response.json()
 
-            movie_ids = [movie["id"] for movie in all_movies]
+        movie_ids = [movie["id"] for movie in all_movies]
 
         return {"movies": movie_ids}
 
