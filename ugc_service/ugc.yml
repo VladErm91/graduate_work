@@ -1,0 +1,17 @@
+services:
+  # ---- api для mongo пользвательских закладок, лайков/дизлайков, рецензий  ----
+  ugc_service:
+    build: ./mongo_app/app
+    expose:
+      - "8766"       
+
+  mongodb:
+    image: mongo
+    ports:
+      - 27017:27017
+    volumes:
+      - mongodb_data:/data/db
+    restart: unless-stopped
+
+volumes:
+  mongodb_data:

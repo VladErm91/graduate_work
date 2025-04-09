@@ -1,0 +1,151 @@
+services:
+# ---- сервис базы данных ----
+  db:
+    image: postgres:16-alpine
+    restart: always
+    env_file:
+      - ./envs/.env.main
+    environment:
+      - POSTGRES_DB=${DB_NAME:-movies_database}
+      - POSTGRES_USER=${DB_USER:-app}
+      - POSTGRES_PASSWORD=${DB_PASSWORD:-123qwe}
+      - POSTGRES_HOST=${DB_HOST:-db}
+      - POSTGRES_PORT=${DB_PORT:-5432}
+    expose:
+      - "5432"
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+      - ./schema_design/dump_db.sql:/docker-entrypoint-initdb.d/dump_db.sql
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U app -d movies_database"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+# ---- сервис кэширования ----
+  redis:
+    image: redis:5.0.4
+    restart: always
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    ports:
+      - "6379:6379"
+    expose:
+      - "6379"
+    depends_on:
+      db:
+        condition: service_healthy
+    volumes:
+      - redis_data:/data
+
+# ---- сервис авторизации ----
+  auth:
+    image: rikhoff/auth_service:latest
+    restart: always
+    command: uvicorn --app-dir ./auth main:app --host 0.0.0.0 --port 8080
+    expose:
+      - "8080"
+    # ports:
+    #   - "8080:8080"
+    env_file:
+      - ./envs/.env.main
+    depends_on:
+      db:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+
+  jaeger:
+    image: jaegertracing/all-in-one:latest
+    container_name: jaeger
+    env_file:
+      - ./envs/.env.main
+    ports:
+      - "6831:6831/udp"
+      - "16686:16686"  
+    command: [ "--log-level=debug" ]
+    depends_on:
+      - movie_api
+      - auth
+
+# ---- сервис админки django ----
+  django_admin:
+    image: rikhoff/django_admin:latest   
+    env_file:
+      - ./envs/.env.main
+    expose:
+      - "8081"
+    # ports:
+    #   - "8000:8000"
+    volumes:
+      - static:/opt/app/static
+    restart: always
+    depends_on:
+      db:
+        condition: service_healthy
+
+# ---- сервис fastapi ----
+  movie_api:
+    image: rikhoff/movie_api:latest
+    restart: always
+    command: uvicorn --app-dir ./src main:app --host 0.0.0.0 --port 8000
+    env_file:
+      - ./envs/.env.main
+    expose:
+      - "8000"
+    ports:
+      - "8000:8000"
+    depends_on:
+      db:
+        condition: service_healthy
+      elastic:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+
+  elastic:
+    image: elasticsearch:8.6.2
+    restart: always
+    environment:
+      - discovery.type=single-node
+      - xpack.security.enabled=false
+      - ingest.geoip.downloader.enabled=false
+      - ES_JAVA_OPTS=-Xms512m -Xmx512m
+    ulimits:
+      memlock:
+        soft: -1
+        hard: -1
+    expose:
+      - "9200"
+    volumes:
+      - elasticsearch_data:/opt/elasticsearch/data
+    healthcheck:
+      test: ["CMD-SHELL", "curl -s http://elastic:9200/_cluster/health | grep -q '\\(green\\|yellow\\)'" ]
+      interval: 10s
+      timeout: 10s
+      retries: 5
+    depends_on:
+      db:
+        condition: service_healthy
+
+  # etl_service:
+  #   image: rikhoff/etl_service:latest
+  #   restart: always
+  #   env_file:
+  #     - ./envs/.env.etl
+  #   depends_on:
+  #     db:
+  #       condition: service_healthy
+  #     elastic:
+  #       condition: service_healthy
+  #     redis:
+  #       condition: service_healthy
+
+volumes:
+  postgres_data:
+  elasticsearch_data:
+  redis_data:
+  static:

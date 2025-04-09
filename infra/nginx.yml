@@ -1,0 +1,17 @@
+services:
+
+# ---- сервис nginx ----
+  nginx:
+    image: nginx:latest
+    volumes:
+      - ./nginx/nginx.conf:/etc/nginx/nginx.conf:z
+      - ./nginx/configs:/etc/nginx/conf.d:z
+      - static:/data/static/:z
+    depends_on:
+      - django_admin
+      - auth
+      - movie_api
+      - ugc_service
+      # - file_api
+    ports:
+      - "80:80"
