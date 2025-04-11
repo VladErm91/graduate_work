@@ -40,9 +40,8 @@ async def calculate_metrics():
 
     for rec in recommendation_logs:
         session_id = rec["session_id"]
-        model_type = model_type = rec.get(
-            "source", rec.get("model_type", "unknown")
-        )  # Используем source, с fallback на model_type
+        model_type = rec.get("source", rec.get("model_type", "unknown"))  
+        # Используем source, с fallback на model_type
         recommended = set(rec["recommendations"])
         feedback = feedback_by_session.get(session_id, [])
 
