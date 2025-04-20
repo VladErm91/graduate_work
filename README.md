@@ -1,3 +1,10 @@
+[![Python](https://img.shields.io/badge/python-3670A0?style=for-the-badge&logo=python&logoColor=ffdd54)](#)
+[![MinIO](https://img.shields.io/badge/minio-1E88E5?style=for-the-badge&logo=minio&logoColor=white)](#)
+[![Redis](https://img.shields.io/badge/redis-DC382D?style=for-the-badge&logo=redis&logoColor=white)](#)
+[![MongoDB](https://img.shields.io/badge/mongodb-47A248?style=for-the-badge&logo=mongodb&logoColor=white)](#)
+[![FastAPI](https://img.shields.io/badge/fastapi-009688?style=for-the-badge&logo=fastapi&logoColor=white)](#)
+[![LightFM](https://img.shields.io/badge/lightfm-000000?style=for-the-badge)](#)
+
 ### Рекомендательная система
   
 API для рекомендаций фильмов на основе предпочтений пользователей и истории просмотров с использованием моделей машинного обучения (ALS и LightFM).
